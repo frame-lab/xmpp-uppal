@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
+<nta>
+	<declaration>// These global declaration simulates server behavior, which shares states between entities
+bool LastCSTSent = false;
+chan FirstCST, ISH, RSH, SenderStream, ReceiverStream;
+const int timeLimit = 100;
+
+chan priority FirstCST &lt; SenderStream,ReceiverStream;</declaration>
+	<template>
+		<name x="9" y="9">Sender</name>
+		<declaration>clock t;
+</declaration>
+		<location id="id0" x="-569" y="221">
+			<name x="-611" y="238">SendingISH</name>
+		</location>
+		<location id="id1" x="-450" y="221">
+			<name x="-493" y="238">WaitingRSH</name>
+		</location>
+		<location id="id2" x="425" y="357">
+			<name x="391" y="374">WaitingCST</name>
+		</location>
+		<location id="id3" x="629" y="229">
+			<name x="619" y="195">EndOfStream</name>
+		</location>
+		<location id="id4" x="433" y="229">
+			<name x="382" y="246">SendingLastCST</name>
+		</location>
+		<location id="id5" x="-297" y="221">
+			<name x="-373" y="238">StartingStreamContent</name>
+			<urgent/>
+		</location>
+		<location id="id6" x="-51" y="221">
+			<name x="-34" y="195">SendingMessages</name>
+		</location>
+		<location id="id7" x="-51" y="340">
+			<name x="-195" y="331">ReceivingMessages</name>
+		</location>
+		<location id="id8" x="204" y="357">
+			<name x="153" y="306">EndingStream</name>
+		</location>
+		<init ref="id0"/>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="guard" x="527" y="331">t &lt;= timeLimit</label>
+			<nail x="629" y="357"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="144" y="493">ReceiverStream?</label>
+			<nail x="119" y="484"/>
+			<nail x="272" y="484"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="222" y="276">FirstCST?</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="263" y="331">FirstCST!</label>
+			<label kind="assignment" x="272" y="357">t := 0</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id8"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="153" y="238">FirstCST?</label>
+			<nail x="68" y="238"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id6"/>
+			<nail x="0" y="289"/>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-212" y="263">ReceiverStream?</label>
+			<nail x="-110" y="272"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-110" y="484">ReceiverStream?</label>
+			<nail x="-136" y="467"/>
+			<nail x="17" y="467"/>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-85" y="85">SenderStream!</label>
+			<nail x="-102" y="119"/>
+			<nail x="17" y="119"/>
+			<nail x="-42" y="204"/>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-280" y="187">SenderStream!</label>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-391" y="195">RSH?</label>
+		</transition>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-527" y="195">ISH!</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="guard" x="391" y="280">LastCSTSent == true</label>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id3"/>
+			<label kind="assignment" x="450" y="195">LastCSTSent = true</label>
+		</transition>
+	</template>
+	<template>
+		<name>Receiver</name>
+		<declaration>clock t;
+</declaration>
+		<location id="id9" x="-1802" y="-178">
+			<name x="-1836" y="-161">WaitingISH</name>
+		</location>
+		<location id="id10" x="-1521" y="-178">
+			<name x="-1581" y="-161">WaitingStreamToStart</name>
+		</location>
+		<location id="id11" x="-1674" y="-178">
+			<name x="-1708" y="-161">SendingRSH</name>
+		</location>
+		<location id="id12" x="-1334" y="-59">
+			<name x="-1462" y="-68">SendingMessages</name>
+		</location>
+		<location id="id13" x="-850" y="-59">
+			<name x="-884" y="-42">WaitingCST</name>
+		</location>
+		<location id="id14" x="-1334" y="-178">
+			<name x="-1309" y="-204">ReceivingMessages</name>
+		</location>
+		<location id="id15" x="-850" y="-178">
+			<name x="-901" y="-161">SendingLastCST</name>
+		</location>
+		<location id="id16" x="-654" y="-178">
+			<name x="-664" y="-212">EndOfStream</name>
+		</location>
+		<location id="id17" x="-1122" y="-59">
+			<name x="-1148" y="-42">EndingStream</name>
+		</location>
+		<init ref="id9"/>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id16"/>
+			<label kind="guard" x="-705" y="-51">t &lt;= timeLimit</label>
+			<nail x="-654" y="-59"/>
+		</transition>
+		<transition>
+			<source ref="id15"/>
+			<target ref="id16"/>
+			<label kind="assignment" x="-832" y="-178">LastCSTSent = true</label>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id17"/>
+			<label kind="synchronisation" x="-1156" y="68">SenderStream?</label>
+			<nail x="-1182" y="60"/>
+			<nail x="-1046" y="60"/>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id15"/>
+			<label kind="synchronisation" x="-1045" y="-136">FirstCST?</label>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id14"/>
+			<label kind="synchronisation" x="-1496" y="-238">SenderStream?</label>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id17"/>
+		</transition>
+		<transition>
+			<source ref="id17"/>
+			<target ref="id13"/>
+			<label kind="synchronisation" x="-1020" y="-76">FirstCST!</label>
+			<label kind="assignment" x="-1011" y="-51">t:=0</label>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id15"/>
+			<label kind="synchronisation" x="-1173" y="-204">FirstCST?</label>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id12"/>
+			<nail x="-1292" y="-119"/>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id14"/>
+			<label kind="synchronisation" x="-1496" y="-119">SenderStream?</label>
+			<nail x="-1351" y="-76"/>
+			<nail x="-1385" y="-119"/>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1623" y="-204">RSH!</label>
+		</transition>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id11"/>
+			<label kind="synchronisation" x="-1759" y="-204">ISH?</label>
+		</transition>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id12"/>
+			<label kind="synchronisation" x="-1394" y="76">ReceiverStream!</label>
+			<nail x="-1419" y="68"/>
+			<nail x="-1266" y="68"/>
+		</transition>
+		<transition>
+			<source ref="id14"/>
+			<target ref="id14"/>
+			<label kind="synchronisation" x="-1367" y="-323">SenderStream?</label>
+			<nail x="-1385" y="-306"/>
+			<nail x="-1241" y="-306"/>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id16"/>
+			<label kind="guard" x="-832" y="-152">LastCSTSent == true</label>
+		</transition>
+	</template>
+	<system>R = Receiver();
+S = Sender();
+
+
+system R, S;
+    </system>
+	<queries>
+		<query>
+			<formula></formula>
+			<comment></comment>
+		</query>
+	</queries>
+</nta>
