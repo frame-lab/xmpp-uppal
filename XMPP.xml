@@ -1,253 +1,391 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.1//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_2.dtd'>
 <nta>
-	<declaration>// These global declaration simulates server behavior, which shares states between entities
-bool LastCSTSent = false;
-chan FirstCST, ISH, RSH, SenderStream, ReceiverStream;
+	<declaration>// TODO Implementar buffer de tamanho fixo no servidor recebendo guardando as mensagens para envio utilizando id de mensagem e um array de posições
+
+typedef struct
+{
+  int from;
+  int to;
+  int content;
+} messageType;
+
+
+const messageType ACK = {-1,-1,-1};
+const messageType NULL = {-2,-2,-2};
 const int timeLimit = 100;
 
-chan priority FirstCST &lt; SenderStream,ReceiverStream;</declaration>
-	<template>
-		<name x="9" y="9">Sender</name>
-		<declaration>clock t;
+const int ISH = 0;
+const int RSH = 1;
+const int ValidStanza = 2;
+const int FirstCST = 3;
+const int LastCST = 4;
+
+const int clientNumber = 2;
+
+// Utilities
+bool isMessageEquivalent(messageType a, messageType b){
+    return a.from == b.from &amp;&amp; a.to == b.to &amp;&amp; a.content == b.content;
+}
+
+bool isMessageNullOrAck(messageType message){
+    return isMessageEquivalent(message,ACK) || isMessageEquivalent(message,NULL);
+}
+
+chan toServer[clientNumber], fromServer[clientNumber];
+
+messageType toServerMessages[clientNumber] = {NULL,NULL};
+messageType toClientMessages[clientNumber] = {NULL,NULL};
+messageType currentClientReadMessage[clientNumber] = {NULL,NULL};
+
+// MESSAGE READING
+bool client_checkMessageContent(int address, int content){
+    return currentClientReadMessage[address].content == content;
+}
+
+bool client_hasReceivedMessage(int clientAddress){
+    return !isMessageNullOrAck(toClientMessages[clientAddress]);
+}
+
+void client_readMessage(int address){
+    currentClientReadMessage[address] = toClientMessages[address];
+    toClientMessages[address] = ACK;
+}
+
+// MESSAGE SENDING 
+bool client_canSendNewMessage(int address){
+    return isMessageNullOrAck(toServerMessages[address]);
+}
+
+void client_sendToServer(int from, int to, int messageContent){
+    messageType message = {from, to, messageContent};
+    toServerMessages[from] = message;
+}
 </declaration>
-		<location id="id0" x="-569" y="221">
-			<name x="-611" y="238">SendingISH</name>
+	<template>
+		<name>Server</name>
+		<declaration>const int bufferSize = 10000;
+int nextItemCursor = 0;
+int messageCount = 0;
+messageType buffer[bufferSize];
+int bufferCursor = 0;
+
+// QUEUE 
+messageType top(){
+    return buffer[nextItemCursor];
+}
+
+messageType dequeue(){
+  messageType item = top();
+  buffer[nextItemCursor] = NULL;
+  nextItemCursor++;
+  return item;
+}
+
+void queue(messageType message){
+    buffer[bufferCursor] = message;    
+    bufferCursor++;
+}
+
+void requeue(){
+    messageType item = top();
+    dequeue();
+    queue(item);
+}
+
+bool bufferExcededLimit(){
+     return bufferCursor &lt; bufferSize;
+}
+
+void initialize(){
+    int i;
+    for (i = 0; i &lt; bufferSize; i++){
+        buffer[i] = NULL;
+    }
+    for (i = 0; i &lt; clientNumber; i++){
+        toClientMessages[i] = NULL;
+        toServerMessages[i] = NULL;
+    }
+}
+
+// MESSAGE RECEIVING
+messageType getReceivedMessage(){
+    int i;
+    for (i = 0; i&lt;clientNumber;i++){
+        if (!isMessageNullOrAck(toServerMessages[i])){
+            return toServerMessages[i];
+        }     
+    }
+    return ACK;
+}
+
+messageType getCurrentMessage(){
+    return top();
+}
+
+bool canReceiveNewMessage(){
+   return bufferExcededLimit();
+}    
+
+void server_readMessage(){
+    messageType receivedMessage = getReceivedMessage();
+    queue(receivedMessage);
+    toServerMessages[receivedMessage.from] = ACK;
+}
+
+bool server_hasReceivedMessage(){
+    return !isMessageNullOrAck(getReceivedMessage());
+}
+
+// MESSAGE SENDING
+bool server_canSendNewMessage(){
+    messageType toSendMessage = getCurrentMessage();
+    if (isMessageNullOrAck(toSendMessage)){
+        return false;
+    }
+    return isMessageNullOrAck(toClientMessages[toSendMessage.to]);
+}
+
+void sendToClient(){
+  messageType currentMessage = top();
+  toClientMessages[currentMessage.to] = dequeue();
+}
+
+
+</declaration>
+		<location id="id0" x="-382" y="-136">
+			<committed/>
 		</location>
-		<location id="id1" x="-450" y="221">
-			<name x="-493" y="238">WaitingRSH</name>
+		<location id="id1" x="136" y="-136">
+			<name x="110" y="-110">Acting</name>
 		</location>
-		<location id="id2" x="425" y="357">
-			<name x="391" y="374">WaitingCST</name>
-		</location>
-		<location id="id3" x="629" y="229">
-			<name x="619" y="195">EndOfStream</name>
-		</location>
-		<location id="id4" x="433" y="229">
-			<name x="382" y="246">SendingLastCST</name>
-		</location>
-		<location id="id5" x="-297" y="221">
-			<name x="-373" y="238">StartingStreamContent</name>
-			<urgent/>
-		</location>
-		<location id="id6" x="-51" y="221">
-			<name x="-34" y="195">SendingMessages</name>
-		</location>
-		<location id="id7" x="-51" y="340">
-			<name x="-195" y="331">ReceivingMessages</name>
-		</location>
-		<location id="id8" x="204" y="357">
-			<name x="153" y="306">EndingStream</name>
+		<location id="id2" x="-255" y="-136">
+			<name x="-265" y="-170">Idle</name>
 		</location>
 		<init ref="id0"/>
 		<transition>
-			<source ref="id2"/>
-			<target ref="id3"/>
-			<label kind="guard" x="527" y="331">t &lt;= timeLimit</label>
-			<nail x="629" y="357"/>
-		</transition>
-		<transition>
-			<source ref="id8"/>
-			<target ref="id8"/>
-			<label kind="synchronisation" x="144" y="493">ReceiverStream?</label>
-			<nail x="119" y="484"/>
-			<nail x="272" y="484"/>
-		</transition>
-		<transition>
-			<source ref="id8"/>
-			<target ref="id4"/>
-			<label kind="synchronisation" x="222" y="276">FirstCST?</label>
-		</transition>
-		<transition>
-			<source ref="id8"/>
-			<target ref="id2"/>
-			<label kind="synchronisation" x="263" y="331">FirstCST!</label>
-			<label kind="assignment" x="272" y="357">t := 0</label>
-		</transition>
-		<transition>
-			<source ref="id6"/>
-			<target ref="id8"/>
-		</transition>
-		<transition>
-			<source ref="id7"/>
-			<target ref="id4"/>
-			<label kind="synchronisation" x="153" y="238">FirstCST?</label>
-			<nail x="68" y="238"/>
-		</transition>
-		<transition>
-			<source ref="id7"/>
-			<target ref="id6"/>
-			<nail x="0" y="289"/>
-		</transition>
-		<transition>
-			<source ref="id6"/>
-			<target ref="id7"/>
-			<label kind="synchronisation" x="-212" y="263">ReceiverStream?</label>
-			<nail x="-110" y="272"/>
-		</transition>
-		<transition>
-			<source ref="id7"/>
-			<target ref="id7"/>
-			<label kind="synchronisation" x="-110" y="484">ReceiverStream?</label>
-			<nail x="-136" y="467"/>
-			<nail x="17" y="467"/>
-		</transition>
-		<transition>
-			<source ref="id6"/>
-			<target ref="id6"/>
-			<label kind="synchronisation" x="-85" y="85">SenderStream!</label>
-			<nail x="-102" y="119"/>
-			<nail x="17" y="119"/>
-			<nail x="-42" y="204"/>
-		</transition>
-		<transition>
-			<source ref="id5"/>
-			<target ref="id6"/>
-			<label kind="synchronisation" x="-280" y="187">SenderStream!</label>
+			<source ref="id1"/>
+			<target ref="id1"/>
+			<label kind="guard" x="246" y="-170">!server_canSendNewMessage()</label>
+			<label kind="assignment" x="246" y="-144">requeue()</label>
+			<nail x="212" y="-187"/>
+			<nail x="212" y="-110"/>
 		</transition>
 		<transition>
 			<source ref="id1"/>
-			<target ref="id5"/>
-			<label kind="synchronisation" x="-391" y="195">RSH?</label>
-		</transition>
-		<transition>
-			<source ref="id0"/>
-			<target ref="id1"/>
-			<label kind="synchronisation" x="-527" y="195">ISH!</label>
+			<target ref="id2"/>
+			<label kind="guard" x="-425" y="-8">!server_hasReceivedMessage() &amp;&amp; isMessageEquivalent(getCurrentMessage(), NULL)</label>
+			<nail x="-136" y="-85"/>
 		</transition>
 		<transition>
 			<source ref="id2"/>
-			<target ref="id3"/>
-			<label kind="guard" x="391" y="280">LastCSTSent == true</label>
+			<target ref="id1"/>
+			<label kind="guard" x="-527" y="-246">!isMessageEquivalent(getCurrentMessage(), NULL) || server_hasReceivedMessage()</label>
+			<label kind="assignment" x="-187" y="-221">server_readMessage()</label>
+			<nail x="-136" y="-187"/>
+		</transition>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id2"/>
+			<label kind="assignment" x="-357" y="-136">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id1"/>
+			<label kind="guard" x="43" y="-238">server_canSendNewMessage()</label>
+			<label kind="assignment" x="85" y="-221">sendToClient()</label>
+			<nail x="104" y="-194"/>
+			<nail x="164" y="-194"/>
+		</transition>
+		<transition>
+			<source ref="id1"/>
+			<target ref="id1"/>
+			<label kind="guard" x="76" y="-59">server_hasReceivedMessage()</label>
+			<label kind="assignment" x="85" y="-42">server_readMessage()</label>
+			<nail x="111" y="-77"/>
+			<nail x="162" y="-77"/>
+		</transition>
+	</template>
+	<template>
+		<name x="9" y="9">Sender</name>
+		<parameter>int from, int to</parameter>
+		<declaration>clock t;
+
+void sendFirstCST(){
+    client_sendToServer(from, to, FirstCST);
+    t:=0;
+}
+
+void sendISH(){
+    client_sendToServer(from, to, ISH);
+}
+
+
+void sendValidStanza(){
+    client_sendToServer(from, to, ValidStanza);
+}
+</declaration>
+		<location id="id3" x="-1079" y="221">
+			<name x="-1121" y="238">SendingISH</name>
+		</location>
+		<location id="id4" x="-782" y="221">
+			<name x="-825" y="238">WaitingRSH</name>
+		</location>
+		<location id="id5" x="433" y="221">
+			<name x="423" y="187">EndOfStream</name>
+		</location>
+		<location id="id6" x="-297" y="221">
+			<name x="-373" y="238">StartingStreamContent</name>
+		</location>
+		<location id="id7" x="-25" y="221">
+			<name x="-68" y="238">SendingMessages</name>
+		</location>
+		<location id="id8" x="178" y="221">
+			<name x="135" y="238">WaitingCST</name>
+		</location>
+		<location id="id9" x="-552" y="221">
+			<committed/>
+		</location>
+		<init ref="id3"/>
+		<transition>
+			<source ref="id9"/>
+			<target ref="id6"/>
+			<label kind="guard" x="-544" y="170">client_checkMessageContent(from,RSH)</label>
 		</transition>
 		<transition>
 			<source ref="id4"/>
-			<target ref="id3"/>
-			<label kind="assignment" x="450" y="195">LastCSTSent = true</label>
+			<target ref="id9"/>
+			<label kind="guard" x="-765" y="170">client_hasReceivedMessage(from)</label>
+			<label kind="assignment" x="-739" y="187">client_readMessage(from)</label>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id8"/>
+			<label kind="guard" x="0" y="178">client_canSendNewMessage(from)</label>
+			<label kind="assignment" x="42" y="195">sendFirstCST()</label>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id5"/>
+			<label kind="guard" x="280" y="306">t &gt;= timeLimit</label>
+			<nail x="314" y="306"/>
+		</transition>
+		<transition>
+			<source ref="id8"/>
+			<target ref="id5"/>
+			<label kind="guard" x="204" y="119">client_checkMessageContent(from,LastCST)</label>
+			<nail x="305" y="144"/>
+		</transition>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id7"/>
+			<label kind="guard" x="-102" y="76">client_canSendNewMessage(from)</label>
+			<label kind="assignment" x="-68" y="93">sendValidStanza()</label>
+			<nail x="-76" y="119"/>
+			<nail x="43" y="119"/>
+			<nail x="-16" y="204"/>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="guard" x="-272" y="178">client_canSendNewMessage(from)</label>
+			<label kind="assignment" x="-229" y="195">sendValidStanza()</label>
+		</transition>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="guard" x="-1054" y="170">client_canSendNewMessage(from)</label>
+			<label kind="assignment" x="-1003" y="195">sendISH()</label>
 		</transition>
 	</template>
 	<template>
 		<name>Receiver</name>
-		<declaration>clock t;
+		<parameter>int from, int to</parameter>
+		<declaration>void sendRSH(){
+    client_sendToServer(from, to, RSH);
+}
+
+void sendLastCST(){
+    client_sendToServer(from, to, LastCST);
+}
 </declaration>
-		<location id="id9" x="-1802" y="-178">
-			<name x="-1836" y="-161">WaitingISH</name>
+		<location id="id10" x="-2303" y="-178">
+			<name x="-2337" y="-161">WaitingISH</name>
 		</location>
-		<location id="id10" x="-1521" y="-178">
-			<name x="-1581" y="-161">WaitingStreamToStart</name>
+		<location id="id11" x="-1479" y="-178">
+			<name x="-1539" y="-161">CheckingForValidStanza</name>
 		</location>
-		<location id="id11" x="-1674" y="-178">
-			<name x="-1708" y="-161">SendingRSH</name>
+		<location id="id12" x="-1717" y="-178">
+			<name x="-1751" y="-161">WaitingStreamToStart</name>
 		</location>
-		<location id="id12" x="-1334" y="-59">
-			<name x="-1462" y="-68">SendingMessages</name>
+		<location id="id13" x="-1173" y="-178">
+			<name x="-1292" y="-170">ReceivingMessages</name>
 		</location>
-		<location id="id13" x="-850" y="-59">
-			<name x="-884" y="-42">WaitingCST</name>
+		<location id="id14" x="-629" y="-170">
+			<name x="-680" y="-153">SendingLastCST</name>
 		</location>
-		<location id="id14" x="-1334" y="-178">
-			<name x="-1309" y="-204">ReceivingMessages</name>
+		<location id="id15" x="-357" y="-170">
+			<name x="-367" y="-204">EndOfStream</name>
 		</location>
-		<location id="id15" x="-850" y="-178">
-			<name x="-901" y="-161">SendingLastCST</name>
+		<location id="id16" x="-1997" y="-178">
+			<name x="-2039" y="-161">SendingRSH</name>
 		</location>
-		<location id="id16" x="-654" y="-178">
-			<name x="-664" y="-212">EndOfStream</name>
+		<location id="id17" x="-952" y="-170">
 		</location>
-		<location id="id17" x="-1122" y="-59">
-			<name x="-1148" y="-42">EndingStream</name>
-		</location>
-		<init ref="id9"/>
-		<transition>
-			<source ref="id13"/>
-			<target ref="id16"/>
-			<label kind="guard" x="-705" y="-51">t &lt;= timeLimit</label>
-			<nail x="-654" y="-59"/>
-		</transition>
-		<transition>
-			<source ref="id15"/>
-			<target ref="id16"/>
-			<label kind="assignment" x="-832" y="-178">LastCSTSent = true</label>
-		</transition>
+		<init ref="id10"/>
 		<transition>
 			<source ref="id17"/>
-			<target ref="id17"/>
-			<label kind="synchronisation" x="-1156" y="68">SenderStream?</label>
-			<nail x="-1182" y="60"/>
-			<nail x="-1046" y="60"/>
-		</transition>
-		<transition>
-			<source ref="id17"/>
-			<target ref="id15"/>
-			<label kind="synchronisation" x="-1045" y="-136">FirstCST?</label>
-		</transition>
-		<transition>
-			<source ref="id10"/>
 			<target ref="id14"/>
-			<label kind="synchronisation" x="-1496" y="-238">SenderStream?</label>
-		</transition>
-		<transition>
-			<source ref="id12"/>
-			<target ref="id17"/>
+			<label kind="guard" x="-935" y="-204">client_checkMessageContent(from,FirstCST)</label>
 		</transition>
 		<transition>
 			<source ref="id17"/>
 			<target ref="id13"/>
-			<label kind="synchronisation" x="-1020" y="-76">FirstCST!</label>
-			<label kind="assignment" x="-1011" y="-51">t:=0</label>
+			<label kind="guard" x="-1190" y="-119">client_checkMessageContent(from,ValidStanza)</label>
+			<nail x="-1071" y="-119"/>
+		</transition>
+		<transition>
+			<source ref="id13"/>
+			<target ref="id17"/>
+			<label kind="guard" x="-1156" y="-281">client_hasReceivedMessage(from)</label>
+			<label kind="assignment" x="-1130" y="-264">client_readMessage(from)</label>
+			<nail x="-1071" y="-238"/>
+		</transition>
+		<transition>
+			<source ref="id16"/>
+			<target ref="id12"/>
+			<label kind="guard" x="-2082" y="-272">client_checkMessageContent(from,ISH) &amp;&amp; client_canSendNewMessage(from)</label>
+			<label kind="assignment" x="-1904" y="-212">sendRSH()</label>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id16"/>
+			<label kind="guard" x="-2269" y="-238">client_hasReceivedMessage(from)</label>
+			<label kind="assignment" x="-2244" y="-212">client_readMessage(from)</label>
 		</transition>
 		<transition>
 			<source ref="id14"/>
 			<target ref="id15"/>
-			<label kind="synchronisation" x="-1173" y="-204">FirstCST?</label>
-		</transition>
-		<transition>
-			<source ref="id14"/>
-			<target ref="id12"/>
-			<nail x="-1292" y="-119"/>
-		</transition>
-		<transition>
-			<source ref="id12"/>
-			<target ref="id14"/>
-			<label kind="synchronisation" x="-1496" y="-119">SenderStream?</label>
-			<nail x="-1351" y="-76"/>
-			<nail x="-1385" y="-119"/>
+			<label kind="guard" x="-595" y="-221">client_canSendNewMessage(from)</label>
+			<label kind="assignment" x="-544" y="-204">sendLastCST()</label>
 		</transition>
 		<transition>
 			<source ref="id11"/>
-			<target ref="id10"/>
-			<label kind="synchronisation" x="-1623" y="-204">RSH!</label>
-		</transition>
-		<transition>
-			<source ref="id9"/>
-			<target ref="id11"/>
-			<label kind="synchronisation" x="-1759" y="-204">ISH?</label>
+			<target ref="id13"/>
+			<label kind="guard" x="-1496" y="-221">client_checkMessageContent(from,ValidStanza)</label>
 		</transition>
 		<transition>
 			<source ref="id12"/>
-			<target ref="id12"/>
-			<label kind="synchronisation" x="-1394" y="76">ReceiverStream!</label>
-			<nail x="-1419" y="68"/>
-			<nail x="-1266" y="68"/>
-		</transition>
-		<transition>
-			<source ref="id14"/>
-			<target ref="id14"/>
-			<label kind="synchronisation" x="-1367" y="-323">SenderStream?</label>
-			<nail x="-1385" y="-306"/>
-			<nail x="-1241" y="-306"/>
-		</transition>
-		<transition>
-			<source ref="id13"/>
-			<target ref="id16"/>
-			<label kind="guard" x="-832" y="-152">LastCSTSent == true</label>
+			<target ref="id11"/>
+			<label kind="guard" x="-1700" y="-238">client_hasReceivedMessage(from)</label>
+			<label kind="assignment" x="-1691" y="-212">client_readMessage(from)</label>
 		</transition>
 	</template>
-	<system>R = Receiver();
-S = Sender();
+	<system>Receiver1 = Receiver(0, 1);
+Sender1 = Sender(1,0);
+Server1 = Server();
 
-
-system R, S;
+system Receiver1, Sender1, Server1;
     </system>
 	<queries>
 		<query>
