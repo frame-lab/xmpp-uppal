@@ -21,7 +21,8 @@ const int ValidStanza = 2;
 const int FirstCST = 3;
 const int LastCST = 4;
 
-const int clientNumber = 2;
+const int initialClientNumber = 2;
+const int clientNumber = 20;
 
 // Utilities
 bool isMessageEquivalent(messageType a, messageType b){
@@ -32,14 +33,12 @@ bool isMessageNullOrAck(messageType message){
     return isMessageEquivalent(message,ACK) || isMessageEquivalent(message,NULL);
 }
 
-chan toServer[clientNumber], fromServer[clientNumber];
-chan SaslChan[clientNumber], TlsChan[clientNumber];
+chan SaslChan[clientNumber], TlsChan[clientNumber], XmppClientChan[clientNumber], XmppServerChan[clientNumber], XmppFinalizationServerChan[clientNumber],XmppFinalizationClientChan[clientNumber];
 
-bool SaslStatus[clientNumber], TlsStatus[clientNumber];
+bool SaslStatus[clientNumber], TlsStatus[clientNumber], SetupStatus[clientNumber], StreamStatus[clientNumber];
 
-messageType toServerMessages[clientNumber] = {NULL,NULL};
-messageType toClientMessages[clientNumber] = {NULL,NULL};
-messageType currentClientReadMessage[clientNumber] = {NULL,NULL};
+messageType toServerMessages[clientNumber], toClientMessages[clientNumber], currentClientReadMessage[clientNumber];
+
 
 // MESSAGE READING
 bool client_checkMessageContent(int address, int content){
@@ -69,7 +68,114 @@ void client_sendToServer(int from, int to, int messageContent){
 
 bool clientAuthenticated(int clientId){
     return SaslStatus[clientId];
+}
+
+bool clientSetUp(int clientId){
+    return SetupStatus[clientId];
+}
+
+void finalizeExchange(int clientId){
+    StreamStatus[clientId] = true;
 }</declaration>
+	<template>
+		<name>XMPPStreamSetupSender</name>
+		<parameter>int from</parameter>
+		<location id="id0" x="-476" y="59">
+			<name x="-519" y="76">WaitingRSH</name>
+		</location>
+		<location id="id1" x="-246" y="59">
+			<name x="-306" y="76">StartingStreamContent</name>
+		</location>
+		<location id="id2" x="-672" y="59">
+			<name x="-706" y="76">SendingISH</name>
+		</location>
+		<location id="id3" x="-867" y="59">
+		</location>
+		<init ref="id3"/>
+		<transition>
+			<source ref="id3"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-849" y="25">clientAuthenticated(from)</label>
+		</transition>
+		<transition>
+			<source ref="id2"/>
+			<target ref="id0"/>
+			<label kind="synchronisation" x="-646" y="25">XmppServerChan[from]!</label>
+		</transition>
+		<transition>
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-442" y="25">XmppClientChan[from]?</label>
+			<label kind="assignment" x="-458" y="59">SetupStatus[from] = true</label>
+		</transition>
+	</template>
+	<template>
+		<name>XMPPStreamSetupServer</name>
+		<parameter>int from, int to</parameter>
+		<location id="id4" x="-1938" y="-8">
+		</location>
+		<location id="id5" x="-1734" y="-8">
+		</location>
+		<location id="id6" x="-1547" y="-8">
+		</location>
+		<location id="id7" x="-1351" y="-8">
+		</location>
+		<location id="id8" x="-1164" y="-8">
+		</location>
+		<init ref="id4"/>
+		<transition>
+			<source ref="id7"/>
+			<target ref="id8"/>
+			<label kind="synchronisation" x="-1334" y="-34">XmppClientChan[from]!</label>
+		</transition>
+		<transition>
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-1530" y="-33">XmppServerChan[to]?</label>
+		</transition>
+		<transition>
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-1708" y="-33">XmppClientChan[to]!</label>
+		</transition>
+		<transition>
+			<source ref="id4"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="-1912" y="-33">XmppServerChan[from]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>XMPPStreamSetupReceiver</name>
+		<parameter>int from</parameter>
+		<location id="id9" x="-1360" y="8">
+			<name x="-1394" y="25">WaitingStreamContent</name>
+		</location>
+		<location id="id10" x="-1572" y="8">
+			<name x="-1614" y="25">SendingRSH</name>
+		</location>
+		<location id="id11" x="-1785" y="8">
+			<name x="-1812" y="25">WaitingISH</name>
+		</location>
+		<location id="id12" x="-1989" y="8">
+		</location>
+		<init ref="id12"/>
+		<transition>
+			<source ref="id12"/>
+			<target ref="id11"/>
+			<label kind="guard" x="-1971" y="-26">clientAuthenticated(from)</label>
+		</transition>
+		<transition>
+			<source ref="id11"/>
+			<target ref="id10"/>
+			<label kind="synchronisation" x="-1759" y="-25">XmppClientChan[from]?</label>
+		</transition>
+		<transition>
+			<source ref="id10"/>
+			<target ref="id9"/>
+			<label kind="synchronisation" x="-1555" y="-25">XmppServerChan[from]!</label>
+			<label kind="assignment" x="-1555" y="8">SetupStatus[from] = true</label>
+		</transition>
+	</template>
 	<template>
 		<name>TLSClient</name>
 		<parameter>int client_id</parameter>
@@ -83,45 +189,37 @@ void sendClientInformation(){
     test = true;
 }
 </declaration>
-		<location id="id0" x="-577" y="8">
+		<location id="id13" x="-577" y="8">
 		</location>
-		<location id="id1" x="-373" y="8">
+		<location id="id14" x="-373" y="8">
 		</location>
-		<location id="id2" x="-178" y="8">
+		<location id="id15" x="-178" y="8">
 		</location>
-		<location id="id3" x="9" y="8">
+		<location id="id16" x="9" y="8">
 		</location>
-		<location id="id4" x="8" y="-136">
+		<location id="id17" x="238" y="8">
 		</location>
-		<location id="id5" x="8" y="187">
-		</location>
-		<init ref="id0"/>
+		<init ref="id13"/>
 		<transition>
-			<source ref="id3"/>
-			<target ref="id5"/>
-			<label kind="synchronisation" x="42" y="68">TlsChan[client_id]?</label>
-			<label kind="assignment" x="34" y="85">TlsStatus[client_id] = true</label>
+			<source ref="id16"/>
+			<target ref="id17"/>
+			<label kind="synchronisation" x="68" y="-34">TlsChan[client_id]?</label>
+			<label kind="assignment" x="51" y="-17">TlsStatus[client_id] = true</label>
 		</transition>
 		<transition>
-			<source ref="id3"/>
-			<target ref="id4"/>
-			<label kind="synchronisation" x="42" y="-68">TlsChan[client_id]?</label>
-			<label kind="assignment" x="25" y="-51">TlsStatus[client_id] = true</label>
-		</transition>
-		<transition>
-			<source ref="id2"/>
-			<target ref="id3"/>
+			<source ref="id15"/>
+			<target ref="id16"/>
 			<label kind="synchronisation" x="-152" y="-34">TlsChan[client_id]!</label>
 			<label kind="assignment" x="-161" y="-17">sendClientInformation()</label>
 		</transition>
 		<transition>
-			<source ref="id1"/>
-			<target ref="id2"/>
+			<source ref="id14"/>
+			<target ref="id15"/>
 			<label kind="synchronisation" x="-348" y="-34">TlsChan[client_id]?</label>
 		</transition>
 		<transition>
-			<source ref="id0"/>
-			<target ref="id1"/>
+			<source ref="id13"/>
+			<target ref="id14"/>
 			<label kind="synchronisation" x="-535" y="-34">TlsChan[client_id]!</label>
 			<label kind="assignment" x="-518" y="-17">clientHello()</label>
 		</transition>
@@ -139,38 +237,38 @@ void sendServerInformation(){
     test = true;
 }
 </declaration>
-		<location id="id6" x="-2541" y="59">
+		<location id="id18" x="-2541" y="59">
 			<name x="-2551" y="25">Idle</name>
 		</location>
-		<location id="id7" x="-1734" y="59">
+		<location id="id19" x="-1734" y="59">
 		</location>
-		<location id="id8" x="-1980" y="59">
+		<location id="id20" x="-1980" y="59">
 		</location>
-		<location id="id9" x="-2159" y="59">
+		<location id="id21" x="-2159" y="59">
 		</location>
-		<location id="id10" x="-2380" y="59">
+		<location id="id22" x="-2380" y="59">
 		</location>
-		<init ref="id6"/>
+		<init ref="id18"/>
 		<transition>
-			<source ref="id10"/>
-			<target ref="id9"/>
+			<source ref="id22"/>
+			<target ref="id21"/>
 			<label kind="synchronisation" x="-2337" y="8">TlsChan[client_id]!</label>
 			<label kind="assignment" x="-2346" y="33">sendServerInformation()</label>
 		</transition>
 		<transition>
-			<source ref="id6"/>
-			<target ref="id10"/>
+			<source ref="id18"/>
+			<target ref="id22"/>
 			<label kind="synchronisation" x="-2516" y="8">TlsChan[client_id]?</label>
 		</transition>
 		<transition>
-			<source ref="id8"/>
-			<target ref="id7"/>
+			<source ref="id20"/>
+			<target ref="id19"/>
 			<label kind="synchronisation" x="-1929" y="8">TlsChan[client_id]!</label>
 			<label kind="assignment" x="-1938" y="34">changeCipherSpecBack()</label>
 		</transition>
 		<transition>
-			<source ref="id9"/>
-			<target ref="id8"/>
+			<source ref="id21"/>
+			<target ref="id20"/>
 			<label kind="synchronisation" x="-2142" y="8">TlsChan[client_id]?</label>
 		</transition>
 	</template>
@@ -190,78 +288,78 @@ void chooseMethod(){
 void solveChallenge(){
     test = true;
 }</declaration>
-		<location id="id11" x="-1300" y="-153">
+		<location id="id23" x="-1300" y="-153">
 		</location>
-		<location id="id12" x="-739" y="-153">
+		<location id="id24" x="-739" y="-153">
 			<name x="-799" y="-136">WaitingChallenge</name>
 		</location>
-		<location id="id13" x="-382" y="-153">
+		<location id="id25" x="-382" y="-153">
 			<name x="-459" y="-136">WaitValidation</name>
 		</location>
-		<location id="id14" x="-161" y="-255">
+		<location id="id26" x="-161" y="-255">
 			<name x="-144" y="-264">AuthFailed</name>
 		</location>
-		<location id="id15" x="-229" y="-42">
+		<location id="id27" x="-229" y="-42">
 			<name x="-212" y="-51">AuthSuccess</name>
 		</location>
-		<location id="id16" x="-909" y="-153">
+		<location id="id28" x="-909" y="-153">
 			<name x="-952" y="-136">WaitingMethods</name>
 		</location>
-		<location id="id17" x="-1096" y="-153">
+		<location id="id29" x="-1096" y="-153">
 		</location>
-		<location id="id18" x="-569" y="-153">
+		<location id="id30" x="-569" y="-153">
 		</location>
-		<location id="id19" x="-1530" y="-153">
+		<location id="id31" x="-1530" y="-153">
 		</location>
-		<init ref="id19"/>
+		<init ref="id31"/>
 		<transition>
-			<source ref="id19"/>
-			<target ref="id11"/>
+			<source ref="id31"/>
+			<target ref="id23"/>
 			<label kind="guard" x="-1479" y="-178">TlsStatus[client_id]</label>
 		</transition>
 		<transition>
-			<source ref="id14"/>
-			<target ref="id11"/>
+			<source ref="id26"/>
+			<target ref="id23"/>
 			<nail x="-161" y="-306"/>
 			<nail x="-1300" y="-306"/>
 		</transition>
 		<transition>
-			<source ref="id18"/>
-			<target ref="id13"/>
+			<source ref="id30"/>
+			<target ref="id25"/>
 			<label kind="synchronisation" x="-544" y="-178">SaslChan[client_id]!</label>
 			<label kind="assignment" x="-535" y="-195">solveChallenge()</label>
 		</transition>
 		<transition>
-			<source ref="id12"/>
-			<target ref="id18"/>
+			<source ref="id24"/>
+			<target ref="id30"/>
 			<label kind="synchronisation" x="-722" y="-178">SaslChan[client_id]?</label>
 		</transition>
 		<transition>
-			<source ref="id17"/>
-			<target ref="id16"/>
+			<source ref="id29"/>
+			<target ref="id28"/>
 			<label kind="synchronisation" x="-1071" y="-178">SaslChan[client_id]?</label>
 		</transition>
 		<transition>
-			<source ref="id11"/>
-			<target ref="id17"/>
+			<source ref="id23"/>
+			<target ref="id29"/>
 			<label kind="synchronisation" x="-1266" y="-178">SaslChan[client_id]!</label>
 			<label kind="assignment" x="-1266" y="-195">requestConnection()</label>
 		</transition>
 		<transition>
-			<source ref="id16"/>
-			<target ref="id12"/>
+			<source ref="id28"/>
+			<target ref="id24"/>
 			<label kind="synchronisation" x="-884" y="-178">SaslChan[client_id]!</label>
 			<label kind="assignment" x="-875" y="-195">chooseMethod()</label>
 		</transition>
 		<transition>
-			<source ref="id13"/>
-			<target ref="id14"/>
+			<source ref="id25"/>
+			<target ref="id26"/>
 			<label kind="synchronisation" x="-365" y="-238">SaslChan[client_id]?</label>
 			<label kind="assignment" x="-391" y="-255">SaslStatus[client_id] = false</label>
 		</transition>
 		<transition>
-			<source ref="id13"/>
-			<target ref="id15"/>
+			<source ref="id25"/>
+			<target ref="id27"/>
 			<label kind="synchronisation" x="-272" y="-110">SaslChan[client_id]?</label>
 			<label kind="assignment" x="-297" y="-127">SaslStatus[client_id] = true</label>
 		</transition>
@@ -282,75 +380,139 @@ void sendValidationResponse(){
 void sendChallenge(){
     test = true;
 }</declaration>
-		<location id="id20" x="-747" y="-8">
+		<location id="id32" x="-747" y="-8">
 			<committed/>
 		</location>
-		<location id="id21" x="-653" y="-8">
+		<location id="id33" x="-653" y="-8">
 			<name x="-661" y="9">Idle</name>
 		</location>
-		<location id="id22" x="52" y="-8">
+		<location id="id34" x="52" y="-8">
 			<name x="-25" y="8">WaitingChallengeSolution</name>
 		</location>
-		<location id="id23" x="-279" y="-8">
+		<location id="id35" x="-279" y="-8">
 			<name x="-346" y="9">WaitingMethodChoice</name>
 		</location>
-		<location id="id24" x="-467" y="-8">
+		<location id="id36" x="-467" y="-8">
 			<name x="-535" y="9">ConnectionReceived</name>
 		</location>
-		<location id="id25" x="-109" y="-8">
+		<location id="id37" x="-109" y="-8">
 			<name x="-151" y="9">MethodReceived</name>
 		</location>
-		<location id="id26" x="204" y="-8">
+		<location id="id38" x="204" y="-8">
 			<name x="153" y="8">ChallengeSolReceived</name>
 		</location>
-		<init ref="id20"/>
+		<init ref="id32"/>
 		<transition>
-			<source ref="id26"/>
-			<target ref="id21"/>
+			<source ref="id38"/>
+			<target ref="id33"/>
 			<label kind="synchronisation" x="-297" y="-178">SaslChan[client_id]!</label>
 			<label kind="assignment" x="-323" y="-161">sendValidationResponse()</label>
 			<nail x="204" y="-136"/>
 			<nail x="-654" y="-136"/>
 		</transition>
 		<transition>
-			<source ref="id22"/>
-			<target ref="id26"/>
+			<source ref="id34"/>
+			<target ref="id38"/>
 			<label kind="synchronisation" x="59" y="-42">SaslChan[client_id]?</label>
 		</transition>
 		<transition>
-			<source ref="id25"/>
-			<target ref="id22"/>
+			<source ref="id37"/>
+			<target ref="id34"/>
 			<label kind="synchronisation" x="-93" y="-34">SaslChan[client_id]!</label>
 			<label kind="assignment" x="-84" y="-51">sendChallenge()</label>
 		</transition>
 		<transition>
-			<source ref="id23"/>
-			<target ref="id25"/>
+			<source ref="id35"/>
+			<target ref="id37"/>
 			<label kind="synchronisation" x="-263" y="-34">SaslChan[client_id]?</label>
 		</transition>
 		<transition>
-			<source ref="id21"/>
-			<target ref="id24"/>
+			<source ref="id33"/>
+			<target ref="id36"/>
 			<label kind="synchronisation" x="-619" y="-33">SaslChan[client_id]?</label>
 		</transition>
 		<transition>
-			<source ref="id24"/>
-			<target ref="id23"/>
+			<source ref="id36"/>
+			<target ref="id35"/>
 			<label kind="synchronisation" x="-442" y="-34">SaslChan[client_id]!</label>
 			<label kind="assignment" x="-425" y="-51">sendMethod()</label>
 		</transition>
 		<transition>
-			<source ref="id20"/>
-			<target ref="id21"/>
+			<source ref="id32"/>
+			<target ref="id33"/>
+		</transition>
+	</template>
+	<template>
+		<name x="9" y="9">Sender</name>
+		<parameter>int from, int to</parameter>
+		<declaration>clock t;
+int sc;
+
+
+
+void sendISH(){
+    client_sendToServer(sc, to, ISH);
+}
+
+
+void sendValidStanza(){
+    client_sendToServer(sc, to, ValidStanza);
+}
+
+void initialize(){
+    sc = from + initialClientNumber;
+}
+</declaration>
+		<location id="id39" x="-17" y="221">
+			<name x="-60" y="238">SendingMessages</name>
+		</location>
+		<location id="id40" x="238" y="221">
+			<name x="195" y="238">WaitingCST</name>
+		</location>
+		<location id="id41" x="-297" y="221">
+			<name x="-357" y="238">StartingStreamContent</name>
+		</location>
+		<location id="id42" x="-535" y="221">
+		</location>
+		<init ref="id42"/>
+		<transition>
+			<source ref="id42"/>
+			<target ref="id41"/>
+			<label kind="guard" x="-476" y="195">clientSetUp(from)</label>
+			<label kind="assignment" x="-517" y="221">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id41"/>
+			<target ref="id39"/>
+			<label kind="guard" x="-272" y="161">client_canSendNewMessage(sc)</label>
+			<label kind="synchronisation" x="-229" y="178">XmppServerChan[sc]!</label>
+			<label kind="assignment" x="-204" y="195">sendValidStanza()</label>
+		</transition>
+		<transition>
+			<source ref="id39"/>
+			<target ref="id40"/>
+			<label kind="assignment" x="42" y="195">finalizeExchange(from)</label>
+		</transition>
+		<transition>
+			<source ref="id39"/>
+			<target ref="id39"/>
+			<label kind="guard" x="-102" y="51">client_canSendNewMessage(sc)</label>
+			<label kind="synchronisation" x="-76" y="68">XmppServerChan[sc]!</label>
+			<label kind="assignment" x="-60" y="85">sendValidStanza()</label>
+			<nail x="-68" y="119"/>
+			<nail x="51" y="119"/>
+			<nail x="-8" y="204"/>
 		</transition>
 	</template>
 	<template>
 		<name>Server</name>
-		<declaration>const int bufferSize = 10000;
+		<parameter>int from, int to</parameter>
+		<declaration>const int bufferSize = 1000;
 int nextItemCursor = 0;
 int messageCount = 0;
 messageType buffer[bufferSize];
 int bufferCursor = 0;
+int sc = 0;
 
 // QUEUE 
 messageType top(){
@@ -361,6 +523,7 @@ messageType dequeue(){
   messageType item = top();
   buffer[nextItemCursor] = NULL;
   nextItemCursor++;
+  //bufferCursor--;
   return item;
 }
 
@@ -381,24 +544,20 @@ bool bufferExcededLimit(){
 
 void initialize(){
     int i;
+    sc = from + initialClientNumber;
     for (i = 0; i &lt; bufferSize; i++){
         buffer[i] = NULL;
     }
     for (i = 0; i &lt; clientNumber; i++){
         toClientMessages[i] = NULL;
         toServerMessages[i] = NULL;
+        currentClientReadMessage[i] = NULL;
     }
 }
 
 // MESSAGE RECEIVING
-messageType getReceivedMessage(){
-    int i;
-    for (i = 0; i&lt;clientNumber;i++){
-        if (!isMessageNullOrAck(toServerMessages[i])){
-            return toServerMessages[i];
-        }     
-    }
-    return ACK;
+messageType getReceivedMessage(int address){
+    return toServerMessages[address];
 }
 
 messageType getCurrentMessage(){
@@ -409,14 +568,11 @@ bool canReceiveNewMessage(){
    return bufferExcededLimit();
 }    
 
-void server_readMessage(){
-    messageType receivedMessage = getReceivedMessage();
+void server_readMessage(int address){
+    messageType receivedMessage = getReceivedMessage(address);
     queue(receivedMessage);
+    messageCount++;
     toServerMessages[receivedMessage.from] = ACK;
-}
-
-bool server_hasReceivedMessage(){
-    return !isMessageNullOrAck(getReceivedMessage());
 }
 
 // MESSAGE SENDING
@@ -428,164 +584,67 @@ bool server_canSendNewMessage(){
     return isMessageNullOrAck(toClientMessages[toSendMessage.to]);
 }
 
-void sendToClient(){
-  messageType currentMessage = top();
-  toClientMessages[currentMessage.to] = dequeue();
+void sendMessage(){
+  messageType currentMessage = getCurrentMessage();
+  if (currentMessage.content != ACK.content and currentMessage.content != NULL.content){
+      toClientMessages[currentMessage.to] = dequeue();
+    } else {
+        dequeue();
+    }
 }
 
+bool nextMessageIs(int address){
+  messageType currentMessage = getCurrentMessage();
+  return currentMessage.to == address;
+}
+
+bool hasMessage(){
+  messageType currentMessage = getCurrentMessage();
+  if (currentMessage.content == ACK.content or currentMessage.content == NULL.content){
+        return false;
+    }
+    return true;
+}
 
 </declaration>
-		<location id="id27" x="128" y="59">
-			<name x="118" y="25">Init</name>
-			<committed/>
+		<location id="id43" x="-348" y="238">
+			<name x="-358" y="204">Init</name>
+			<urgent/>
 		</location>
-		<location id="id28" x="875" y="68">
-			<name x="849" y="94">Acting</name>
+		<location id="id44" x="-59" y="238">
+			<name x="-76" y="255">Acting</name>
 		</location>
-		<location id="id29" x="221" y="59">
-			<name x="211" y="25">Idle</name>
+		<location id="id45" x="-212" y="237">
+			<name x="-222" y="203">Idle</name>
 		</location>
-		<init ref="id27"/>
+		<init ref="id43"/>
 		<transition>
-			<source ref="id28"/>
-			<target ref="id28"/>
-			<label kind="guard" x="943" y="42">!server_canSendNewMessage()</label>
-			<label kind="assignment" x="994" y="68">requeue()</label>
-			<nail x="935" y="25"/>
-			<nail x="935" y="102"/>
+			<source ref="id45"/>
+			<target ref="id44"/>
+			<label kind="synchronisation" x="-212" y="263">XmppServerChan[sc]?</label>
+			<nail x="-152" y="238"/>
 		</transition>
 		<transition>
-			<source ref="id28"/>
-			<target ref="id29"/>
-			<label kind="guard" x="204" y="144">isMessageEquivalent(getCurrentMessage(), NULL) &amp;&amp; !server_hasReceivedMessage()</label>
-			<nail x="510" y="119"/>
+			<source ref="id44"/>
+			<target ref="id44"/>
+			<label kind="synchronisation" x="68" y="310">XmppServerChan[sc]?</label>
+			<label kind="assignment" x="68" y="327">server_readMessage(sc)</label>
+			<nail x="85" y="293"/>
+			<nail x="26" y="340"/>
 		</transition>
 		<transition>
-			<source ref="id29"/>
-			<target ref="id28"/>
-			<label kind="guard" x="213" y="-34">!isMessageEquivalent(getCurrentMessage(), NULL) || server_hasReceivedMessage()</label>
-			<label kind="assignment" x="425" y="-17">server_readMessage()</label>
-			<nail x="510" y="8"/>
+			<source ref="id44"/>
+			<target ref="id44"/>
+			<label kind="guard" x="93" y="187">nextMessageIs(to) &amp;&amp;  server_canSendNewMessage()</label>
+			<label kind="synchronisation" x="85" y="204">XmppClientChan[to]!</label>
+			<label kind="assignment" x="93" y="221">sendMessage()</label>
+			<nail x="60" y="196"/>
+			<nail x="94" y="263"/>
 		</transition>
 		<transition>
-			<source ref="id27"/>
-			<target ref="id29"/>
-			<label kind="assignment" x="102" y="76">initialize()</label>
-		</transition>
-		<transition>
-			<source ref="id28"/>
-			<target ref="id28"/>
-			<label kind="guard" x="782" y="-34">server_canSendNewMessage()</label>
-			<label kind="assignment" x="824" y="-17">sendToClient()</label>
-			<nail x="843" y="10"/>
-			<nail x="903" y="10"/>
-		</transition>
-		<transition>
-			<source ref="id28"/>
-			<target ref="id28"/>
-			<label kind="guard" x="815" y="145">server_hasReceivedMessage()</label>
-			<label kind="assignment" x="824" y="162">server_readMessage()</label>
-			<nail x="850" y="127"/>
-			<nail x="901" y="127"/>
-		</transition>
-	</template>
-	<template>
-		<name x="9" y="9">Sender</name>
-		<parameter>int from, int to</parameter>
-		<declaration>clock t;
-
-void sendFirstCST(){
-    client_sendToServer(from, to, FirstCST);
-    t:=0;
-}
-
-void sendISH(){
-    client_sendToServer(from, to, ISH);
-}
-
-
-void sendValidStanza(){
-    client_sendToServer(from, to, ValidStanza);
-}
-</declaration>
-		<location id="id30" x="-1266" y="221">
-		</location>
-		<location id="id31" x="-782" y="221">
-			<name x="-825" y="238">WaitingRSH</name>
-		</location>
-		<location id="id32" x="433" y="221">
-			<name x="423" y="187">EndOfStream</name>
-		</location>
-		<location id="id33" x="-297" y="221">
-			<name x="-373" y="238">StartingStreamContent</name>
-		</location>
-		<location id="id34" x="-25" y="221">
-			<name x="-68" y="238">SendingMessages</name>
-		</location>
-		<location id="id35" x="178" y="221">
-			<name x="135" y="238">WaitingCST</name>
-		</location>
-		<location id="id36" x="-552" y="221">
-			<committed/>
-		</location>
-		<location id="id37" x="-1037" y="221">
-			<name x="-1071" y="238">SendingISH</name>
-		</location>
-		<init ref="id30"/>
-		<transition>
-			<source ref="id37"/>
-			<target ref="id31"/>
-			<label kind="guard" x="-1020" y="170">client_canSendNewMessage(from)</label>
-			<label kind="assignment" x="-935" y="187">sendISH()</label>
-		</transition>
-		<transition>
-			<source ref="id30"/>
-			<target ref="id37"/>
-			<label kind="guard" x="-1232" y="170">clientAuthenticated(from)</label>
-		</transition>
-		<transition>
-			<source ref="id36"/>
-			<target ref="id33"/>
-			<label kind="guard" x="-552" y="187">client_checkMessageContent(from,RSH)</label>
-		</transition>
-		<transition>
-			<source ref="id31"/>
-			<target ref="id36"/>
-			<label kind="guard" x="-765" y="170">client_hasReceivedMessage(from)</label>
-			<label kind="assignment" x="-739" y="187">client_readMessage(from)</label>
-		</transition>
-		<transition>
-			<source ref="id34"/>
-			<target ref="id35"/>
-			<label kind="guard" x="0" y="178">client_canSendNewMessage(from)</label>
-			<label kind="assignment" x="42" y="195">sendFirstCST()</label>
-		</transition>
-		<transition>
-			<source ref="id35"/>
-			<target ref="id32"/>
-			<label kind="guard" x="280" y="306">t &gt;= timeLimit</label>
-			<nail x="314" y="306"/>
-		</transition>
-		<transition>
-			<source ref="id35"/>
-			<target ref="id32"/>
-			<label kind="guard" x="204" y="119">client_checkMessageContent(from,LastCST)</label>
-			<nail x="305" y="144"/>
-		</transition>
-		<transition>
-			<source ref="id34"/>
-			<target ref="id34"/>
-			<label kind="guard" x="-102" y="76">client_canSendNewMessage(from)</label>
-			<label kind="assignment" x="-68" y="93">sendValidStanza()</label>
-			<nail x="-76" y="119"/>
-			<nail x="43" y="119"/>
-			<nail x="-16" y="204"/>
-		</transition>
-		<transition>
-			<source ref="id33"/>
-			<target ref="id34"/>
-			<label kind="guard" x="-272" y="178">client_canSendNewMessage(from)</label>
-			<label kind="assignment" x="-229" y="195">sendValidStanza()</label>
+			<source ref="id43"/>
+			<target ref="id45"/>
+			<label kind="assignment" x="-314" y="238">initialize()</label>
 		</transition>
 	</template>
 	<template>
@@ -599,103 +658,276 @@ void sendLastCST(){
     client_sendToServer(from, to, LastCST);
 }
 </declaration>
-		<location id="id38" x="-2593" y="-178">
+		<location id="id46" x="-1419" y="-186">
+			<name x="-1453" y="-169">WaitingStreamContent</name>
 		</location>
-		<location id="id39" x="-1479" y="-178">
-			<name x="-1539" y="-161">CheckingForValidStanza</name>
+		<location id="id47" x="-1173" y="-186">
+			<name x="-1241" y="-161">ReceivingMessages</name>
 		</location>
-		<location id="id40" x="-1717" y="-178">
-			<name x="-1751" y="-161">WaitingStreamToStart</name>
+		<location id="id48" x="-578" y="-178">
+			<name x="-629" y="-161">EndOfStream</name>
 		</location>
-		<location id="id41" x="-1173" y="-178">
-			<name x="-1292" y="-170">ReceivingMessages</name>
+		<location id="id49" x="-952" y="-178">
+			<name x="-977" y="-169">CheckNextMessage</name>
 		</location>
-		<location id="id42" x="-629" y="-170">
-			<name x="-680" y="-153">SendingLastCST</name>
+		<location id="id50" x="-1606" y="-187">
 		</location>
-		<location id="id43" x="-357" y="-170">
-			<name x="-367" y="-204">EndOfStream</name>
-		</location>
-		<location id="id44" x="-1997" y="-178">
-			<name x="-2039" y="-161">SendingRSH</name>
-		</location>
-		<location id="id45" x="-952" y="-170">
-			<name x="-977" y="-161">CheckNextMessage</name>
-		</location>
-		<location id="id46" x="-2303" y="-178">
-			<name x="-2330" y="-161">WaitingISH</name>
-		</location>
-		<init ref="id38"/>
+		<init ref="id50"/>
+		<transition>
+			<source ref="id50"/>
+			<target ref="id46"/>
+			<label kind="guard" x="-1564" y="-221">clientSetUp(from)</label>
+		</transition>
 		<transition>
 			<source ref="id46"/>
-			<target ref="id44"/>
-			<label kind="guard" x="-2244" y="-221">client_hasReceivedMessage(from)</label>
-			<label kind="assignment" x="-2218" y="-204">client_readMessage(from)</label>
+			<target ref="id47"/>
+			<label kind="synchronisation" x="-1360" y="-229">XmppClientChan[from]?</label>
+			<label kind="assignment" x="-1377" y="-212">client_readMessage(from)</label>
 		</transition>
 		<transition>
-			<source ref="id38"/>
-			<target ref="id46"/>
-			<label kind="guard" x="-2534" y="-221">clientAuthenticated(from)</label>
+			<source ref="id49"/>
+			<target ref="id48"/>
+			<label kind="assignment" x="-824" y="-203">finalizeExchange(from)</label>
 		</transition>
 		<transition>
-			<source ref="id45"/>
-			<target ref="id42"/>
-			<label kind="guard" x="-935" y="-204">client_checkMessageContent(from,FirstCST)</label>
+			<source ref="id49"/>
+			<target ref="id47"/>
+			<label kind="guard" x="-1198" y="-118">client_checkMessageContent(from,ValidStanza)</label>
+			<nail x="-1071" y="-127"/>
 		</transition>
 		<transition>
-			<source ref="id45"/>
-			<target ref="id41"/>
-			<label kind="guard" x="-1190" y="-119">client_checkMessageContent(from,ValidStanza)</label>
-			<nail x="-1071" y="-119"/>
-		</transition>
-		<transition>
-			<source ref="id41"/>
-			<target ref="id45"/>
-			<label kind="guard" x="-1156" y="-281">client_hasReceivedMessage(from)</label>
-			<label kind="assignment" x="-1130" y="-264">client_readMessage(from)</label>
-			<nail x="-1071" y="-238"/>
-		</transition>
-		<transition>
-			<source ref="id44"/>
-			<target ref="id40"/>
-			<label kind="guard" x="-2082" y="-272">client_checkMessageContent(from,ISH) &amp;&amp; client_canSendNewMessage(from)</label>
-			<label kind="assignment" x="-1904" y="-212">sendRSH()</label>
-		</transition>
-		<transition>
-			<source ref="id42"/>
-			<target ref="id43"/>
-			<label kind="guard" x="-595" y="-221">client_canSendNewMessage(from)</label>
-			<label kind="assignment" x="-544" y="-204">sendLastCST()</label>
-		</transition>
-		<transition>
-			<source ref="id39"/>
-			<target ref="id41"/>
-			<label kind="guard" x="-1496" y="-221">client_checkMessageContent(from,ValidStanza)</label>
-		</transition>
-		<transition>
-			<source ref="id40"/>
-			<target ref="id39"/>
-			<label kind="guard" x="-1700" y="-238">client_hasReceivedMessage(from)</label>
-			<label kind="assignment" x="-1691" y="-212">client_readMessage(from)</label>
+			<source ref="id47"/>
+			<target ref="id49"/>
+			<label kind="guard" x="-1181" y="-331">client_checkMessageContent(from,ValidStanza)</label>
+			<label kind="synchronisation" x="-1139" y="-305">XmppClientChan[from]?</label>
+			<label kind="assignment" x="-1147" y="-288">client_readMessage(from)</label>
+			<nail x="-1072" y="-242"/>
 		</transition>
 	</template>
-	<system>Receiver1 = Receiver(0, 1);
-Sender1 = Sender(1,0);
-Server1 = Server();
+	<template>
+		<name>XMPPStreamFinalizationSender</name>
+		<parameter>int from</parameter>
+		<declaration>clock t;
+int timeLimit = 1000;
+int sc = 0;
 
-SASLClient1 = SASLClient(0);
-SASLServer1 = SASLServer(0);
-SASLClient2 = SASLClient(1);
-SASLServer2 = SASLServer(1);
+void sendFirstCST(){
+    t:=0;
+}
 
+void initialize(){
+    sc = from + initialClientNumber;
+}
+
+bool getStreamFinished(){
+    return StreamStatus[from];
+}</declaration>
+		<location id="id51" x="-204" y="110">
+		</location>
+		<location id="id52" x="310" y="107">
+			<name x="300" y="73">EndOfStream</name>
+		</location>
+		<location id="id53" x="55" y="107">
+			<name x="12" y="124">WaitingCST</name>
+		</location>
+		<location id="id54" x="-484" y="110">
+			<urgent/>
+		</location>
+		<init ref="id54"/>
+		<transition>
+			<source ref="id54"/>
+			<target ref="id51"/>
+			<label kind="guard" x="-442" y="68">getStreamFinished()</label>
+			<label kind="assignment" x="-408" y="85">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id51"/>
+			<target ref="id53"/>
+			<label kind="synchronisation" x="-161" y="68">XmppFinalizationServerChan[sc]!</label>
+			<label kind="assignment" x="-110" y="85">sendFirstCST()</label>
+		</transition>
+		<transition>
+			<source ref="id53"/>
+			<target ref="id52"/>
+			<label kind="guard" x="157" y="192">t &gt;= timeLimit</label>
+			<nail x="191" y="192"/>
+		</transition>
+		<transition>
+			<source ref="id53"/>
+			<target ref="id52"/>
+			<label kind="synchronisation" x="76" y="0">XmppFinalizationClientChan[sc]?</label>
+			<nail x="182" y="30"/>
+		</transition>
+	</template>
+	<template>
+		<name>XMPPStreamFinalizationReceiver</name>
+		<parameter>int from</parameter>
+		<declaration>int sc = 0 ;
+void initialize(){
+    sc = from + initialClientNumber;
+}
+</declaration>
+		<location id="id55" x="-714" y="8">
+		</location>
+		<location id="id56" x="-416" y="8">
+		</location>
+		<location id="id57" x="-144" y="8">
+			<name x="-154" y="-26">EndOfStream</name>
+		</location>
+		<location id="id58" x="-960" y="8">
+			<urgent/>
+		</location>
+		<init ref="id58"/>
+		<transition>
+			<source ref="id58"/>
+			<target ref="id55"/>
+			<label kind="assignment" x="-942" y="8">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id56"/>
+			<target ref="id57"/>
+			<label kind="synchronisation" x="-399" y="-17">XmppFinalizationServerChan[sc]!</label>
+		</transition>
+		<transition>
+			<source ref="id55"/>
+			<target ref="id56"/>
+			<label kind="synchronisation" x="-671" y="-17">XmppFinalizationClientChan[from]?</label>
+		</transition>
+	</template>
+	<template>
+		<name>XMPPStreamFinalizationServer</name>
+		<parameter>int client_id1, int client_id2</parameter>
+		<declaration>
+int sc1 = 0;
+int sc2 = 0;
+
+void initialize(){
+    sc1 = client_id1 + initialClientNumber;
+    sc2 = client_id2 + initialClientNumber;
+}</declaration>
+		<location id="id59" x="-1165" y="-8">
+		</location>
+		<location id="id60" x="-995" y="59">
+		</location>
+		<location id="id61" x="-995" y="-93">
+		</location>
+		<location id="id62" x="-697" y="-93">
+			<name x="-739" y="-76">Client2Ended</name>
+		</location>
+		<location id="id63" x="-680" y="59">
+			<name x="-722" y="76">Client1Ended</name>
+		</location>
+		<location id="id64" x="-391" y="-93">
+		</location>
+		<location id="id65" x="-85" y="-93">
+		</location>
+		<location id="id66" x="-391" y="59">
+		</location>
+		<location id="id67" x="-85" y="59">
+		</location>
+		<location id="id68" x="-1428" y="-8">
+			<urgent/>
+		</location>
+		<init ref="id68"/>
+		<transition>
+			<source ref="id68"/>
+			<target ref="id59"/>
+			<label kind="assignment" x="-1377" y="-8">initialize()</label>
+		</transition>
+		<transition>
+			<source ref="id63"/>
+			<target ref="id66"/>
+			<label kind="synchronisation" x="-663" y="25">XmppFinalizationServerChan[sc2]?</label>
+		</transition>
+		<transition>
+			<source ref="id64"/>
+			<target ref="id65"/>
+			<label kind="synchronisation" x="-357" y="-119">XmppFinalizationClientChan[client_id1]!</label>
+		</transition>
+		<transition>
+			<source ref="id62"/>
+			<target ref="id64"/>
+			<label kind="synchronisation" x="-680" y="-119">XmppFinalizationServerChan[sc1]?</label>
+		</transition>
+		<transition>
+			<source ref="id60"/>
+			<target ref="id63"/>
+			<label kind="synchronisation" x="-961" y="34">XmppFinalizationClientChan[client_id2]!</label>
+		</transition>
+		<transition>
+			<source ref="id61"/>
+			<target ref="id62"/>
+			<label kind="synchronisation" x="-969" y="-127">XmppFinalizationClientChan[client_id1]!</label>
+		</transition>
+		<transition>
+			<source ref="id59"/>
+			<target ref="id60"/>
+			<label kind="synchronisation" x="-1292" y="51">XmppFinalizationServerChan[sc2]?</label>
+		</transition>
+		<transition>
+			<source ref="id59"/>
+			<target ref="id61"/>
+			<label kind="synchronisation" x="-1275" y="-119">XmppFinalizationServerChan[sc1]?</label>
+		</transition>
+		<transition>
+			<source ref="id66"/>
+			<target ref="id67"/>
+			<label kind="synchronisation" x="-357" y="25">XmppFinalizationClientChan[client_id1]!</label>
+		</transition>
+	</template>
+	<system>XMPPStreamSetupSender1 = XMPPStreamSetupSender(0);
+XMPPStreamSetupSender2 = XMPPStreamSetupSender(0);
+XMPPStreamSetupReceiver1 = XMPPStreamSetupReceiver(1);
+XMPPStreamSetupReceiver2 = XMPPStreamSetupReceiver(0);
 TLSClient1 = TLSClient(0);
-TLSServer1 = TLSServer(0);
 TLSClient2 = TLSClient(1);
+TLSServer1 = TLSServer(0);
 TLSServer2 = TLSServer(1);
-
-system Receiver1, Sender1, Server1, SASLClient1, SASLServer1, SASLClient2, SASLServer2, TLSClient1, TLSServer1, TLSClient2, TLSServer2;
-    </system>
+SASLClient1 = SASLClient(0);
+SASLClient2 = SASLClient(1);
+SASLServer1 = SASLServer(0);
+SASLServer2 = SASLServer(1);
+XMPPStreamFinalizationSender1 = XMPPStreamFinalizationSender(0);
+XMPPStreamFinalizationSender2 = XMPPStreamFinalizationSender(0);
+XMPPStreamFinalizationReceiver1 = XMPPStreamFinalizationReceiver(0);
+XMPPStreamFinalizationReceiver2 = XMPPStreamFinalizationReceiver(0);
+XMPPStreamSetupServer1 = XMPPStreamSetupServer(0,1);
+XMPPStreamSetupServer2 = XMPPStreamSetupServer(1,0);
+Sender1 = Sender(0,1);
+Sender2 = Sender(1,0);
+Receiver1 = Receiver(0,1);
+Receiver2 = Receiver(1,0);
+Server1 = Server(0,1);
+Server2 = Server(1,0);
+XMPPStreamFinalizationServer1 = XMPPStreamFinalizationServer(0,1);
+XMPPStreamFinalizationServer2 = XMPPStreamFinalizationServer(1,0);
+system XMPPStreamSetupSender1,XMPPStreamSetupSender2,XMPPStreamSetupReceiver1,XMPPStreamSetupReceiver2,TLSClient1,TLSClient2,TLSServer1,TLSServer2,SASLClient1,SASLClient2,SASLServer1,SASLServer2,XMPPStreamFinalizationSender1,XMPPStreamFinalizationSender2,XMPPStreamFinalizationReceiver1,XMPPStreamFinalizationReceiver2,XMPPStreamSetupServer1,XMPPStreamSetupServer2,Sender1,Sender2,Receiver1,Receiver2,Server1,Server2,XMPPStreamFinalizationServer1,XMPPStreamFinalizationServer2;
+</system>
 	<queries>
+		<query>
+			<formula>E&lt;&gt; XMPPStreamFinalizationSender1.EndOfStream</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Sender1.WaitingCST</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Receiver1.EndOfStream</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; XMPPStreamFinalizationReceiver2.EndOfStream</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; XMPPStreamFinalizationSender1.EndOfStream</formula>
+			<comment></comment>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Sender1.StartingStreamContent</formula>
+			<comment></comment>
+		</query>
 		<query>
 			<formula></formula>
 			<comment></comment>
