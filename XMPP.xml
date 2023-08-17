@@ -680,22 +680,21 @@ Receiver1 = Receiver(1, 0);
 Server1 = Server(0,1);
 
 Sender2 = Sender(1,0);
-Receiver2 = Receiver(0,1);
+Receiver2 = Receiver(0, 1);
 Server2 = Server(1,0);
 
 SASLClient1 = SASLClient(0);
 SASLServer1 = SASLServer(0);
-
-SASLClient2 = SASLClient(1);
-SASLServer2 = SASLServer(1);
-
 TLSClient1 = TLSClient(0);
 TLSServer1 = TLSServer(0);
 
+SASLClient2 = SASLClient(1);
+SASLServer2 = SASLServer(1);
 TLSClient2 = TLSClient(1);
 TLSServer2 = TLSServer(1);
 
-system Sender1, Receiver1, Server1, SASLClient1, SASLServer1, TLSClient1, TLSServer1, Sender2, Receiver2, Server2, SASLClient2, SASLServer2, TLSClient2, TLSServer2;</system>
+system Sender1, Receiver1, Server1, SASLClient1, SASLServer1, TLSClient1, TLSServer1, Sender2, Receiver2, Server2, SASLClient2, SASLServer2, TLSClient2, TLSServer2;
+</system>
 	<queries>
 		<query>
 			<formula>E&lt;&gt; Sender1.EndOfStream</formula>

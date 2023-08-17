@@ -2,7 +2,7 @@ def generate_code(num_clients):
     output = []
 
     # Geração de Sender, Receiver e Server
-    for i in range(1, num_clients*2+1,2):
+    for i in range(1, num_clients,2):
         output.append(f"Sender{i} = Sender({i-1},{i});")
         output.append(f"Receiver{i} = Receiver({i}, {i-1});")
         output.append(f"Server{i} = Server({i-1},{i});")
@@ -14,7 +14,7 @@ def generate_code(num_clients):
 
     # Geração de SASLClient e SASLServer
     system_items = []
-    for i in range(1, num_clients+3):
+    for i in range(1, num_clients+1):
         output.append(f"SASLClient{i} = SASLClient({i-1});")
         output.append(f"SASLServer{i} = SASLServer({i-1});")
         output.append(f"TLSClient{i} = TLSClient({i-1});")
