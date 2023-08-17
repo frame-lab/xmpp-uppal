@@ -1,0 +1,28 @@
+%%{
+init:{
+"theme": "base",
+"themeVariables": {
+"primaryColor": "#e8b07b",
+"primaryTextColor": "#000",
+"primaryBorderColor": "#000",
+"lineColor": "#000",
+"secondaryColor": "#000",
+"tertiaryColor": "#fff",
+"background": "#FFFF"
+}
+}
+}%%
+
+sequenceDiagram
+participant Client1 as XMPP Client 1
+participant Server as XMPP Server
+participant Client2 as XMPP Client 2
+Note over Client2,Server: Setup
+Note over Client1,Server: Setup
+Client1->>Server: Sends messages/Presence/IQs
+Server-->>Client2: Receives messages/Presence/IQs
+Client2->>Server: Sends messages/Presence/IQs
+Server-->>Client1: Receives messages/Presence/IQs
+
+Note over Client1,Server: Termination
+Note over Client2,Server: Termination

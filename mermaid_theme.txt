@@ -1,0 +1,14 @@
+%%{
+init:{
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#e8b07b",
+    "primaryTextColor": "#000",
+    "primaryBorderColor": "#000",
+    "lineColor": "#000",
+    "secondaryColor": "#000",
+    "tertiaryColor": "#fff",
+    "background": "#FFFF"
+  }
+}
+}%%

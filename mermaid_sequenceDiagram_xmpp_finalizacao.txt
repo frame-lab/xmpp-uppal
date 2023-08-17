@@ -1,0 +1,31 @@
+%%{
+init:{
+"theme": "base",
+"themeVariables": {
+"primaryColor": "#e8b07b",
+"primaryTextColor": "#000",
+"primaryBorderColor": "#000",
+"lineColor": "#000",
+"secondaryColor": "#000",
+"tertiaryColor": "#fff",
+"background": "#FFFF"
+}
+}
+}%%
+
+sequenceDiagram
+participant Client1 as XMPP Client 1
+participant Server as XMPP Server
+participant Client2 as XMPP Client 2
+
+Client1->>Server: Requests stream closure
+Client1->>Client1: Waits for closure confirmation
+Server-->>Client2: Receives request
+Note left of Client2: Finishes processing outgoing messages
+Note right of Client1: Processes incoming messages
+Client2->>Server: Sends stream closure confirmation
+Client2->>Server: Closes TCP stream
+Client2->>Server: Closes TCP Connection
+Client1->>Server: Closes TCP stream
+Client1->>Server: Closes TCP Connection
+

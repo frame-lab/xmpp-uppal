@@ -1,0 +1,31 @@
+%%{
+init:{
+"theme": "base",
+"themeVariables": {
+"primaryColor": "#e8b07b",
+"primaryTextColor": "#000",
+"primaryBorderColor": "#000",
+"lineColor": "#000",
+"secondaryColor": "#000",
+"tertiaryColor": "#fff",
+"background": "#FFFF"
+}
+}
+}%%
+
+sequenceDiagram
+participant Client1 as XMPP Client
+participant Server as XMPP Server
+Note right of Client1 : Determines connection port (DNS)
+Client1->>Server: Opens a TCP connection
+Note left of Server: If fails, sends TCP error
+Client1->>Server: Opens an XMPP stream using TCP
+Note left of Server: If fails, sends stream error
+Client1->>Server: Negotiates TLS for channel encryption
+Note left of Server: If fails, sends TLS negotiation error
+Client1->>Server: Authenticates using SASL
+Note left of Server: If fails, sends SASL error
+Server->>Client1: Provides stream resources
+Client1->>Server: Starts stream session
+Client1->>Server: Associates a resource to the stream
+Client1->>Server: Exchanges Stanzas with other entities in the network
