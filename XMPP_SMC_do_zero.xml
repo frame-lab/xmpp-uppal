@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>// Place global declarations here.
+
+// Continuar com o setup de recepção de mensagens. SOMENTE recepção de mensagens no cliente
+
+typedef struct
+{
+  int from;
+  int to;
+  int content;
+} messageT;
+
+
+const int CLIENT_NUMBER = 2;
+chan toServerChannel[CLIENT_NUMBER];
+chan toClientChannel[CLIENT_NUMBER];
+
+
+int setupDone[CLIENT_NUMBER][CLIENT_NUMBER][2];
+const int SETUP_STATUS_NONE = 0;
+const int SETUP_STATUS_INITIATED = 1;
+const int SETUP_STATUS_DONE = 2;
+
+
+messageT currentToServerMessage[CLIENT_NUMBER]; 
+messageT currentToClientMessage[CLIENT_NUMBER]; 
+
+const messageT ACK = {-1,-1,-1};
+const messageT NULL = {-2,-2,-2};
+const messageT ZEROS = {0,0,0};
+const int timeLimit = 100;
+
+</declaration>
+	<template>
+		<name x="5" y="5">Client</name>
+		<parameter>int id, bool sender</parameter>
+		<declaration>
+typedef struct
+{
+  messageT value;
+  int priorityValue;
+} messageTPR;
+
+
+const int CAPACITY  = 10;
+int size = 0;
+messageTPR pr[CAPACITY];
+clock t;
+const int ISH = 0;
+const int RSH = 1;
+const int STREAM_CONTENT = 2;
+const int FIRST_CST = 3;
+const int LAST_CST = 4;
+
+bool validMessage;
+
+messageT indexDebug = {0,0,0};
+
+// Priority Queue
+void enqueue(messageT value, int priorityValue)
+{
+    pr[size].value = value;
+    pr[size].priorityValue = priorityValue;
+    size++;
+}
+ 
+// Function to check the top element
+int peek()
+{
+    int highestpriorityValue = -1000;
+    int ind = -1;
+    int i;
+    for (i = 0; i &lt;= size; i++) {
+ 
+        if (highestpriorityValue == pr[i].priorityValue
+            &amp;&amp; ind &gt; -1
+            &amp;&amp; pr[ind].priorityValue &lt; pr[i].priorityValue) {
+            highestpriorityValue = pr[i].priorityValue;
+            ind = i;
+        }
+        else if (highestpriorityValue
+                 &lt; pr[i].priorityValue) {
+            highestpriorityValue = pr[i].priorityValue;
+            ind = i;
+        }
+    }
+ 
+    return ind;
+}
+ 
+void dequeue()
+{
+    int ind = peek();
+    int i;
+    for (i = ind; i &lt;= size-1; i++) {
+        pr[i] = pr[i + 1];
+    }
+ 
+    size--;
+}
+// -------------------------------------------------- 
+
+messageT generateMessage(int to){
+    if (sender &amp;&amp; setupDone[id][to][1] == SETUP_STATUS_NONE){
+        messageT message = {id, to, ISH};
+        setupDone[id][to][1] = SETUP_STATUS_INITIATED; 
+        return message;
+    } 
+    if (sender &amp;&amp; setupDone[id][to][1] == SETUP_STATUS_INITIATED){
+        
+    }     
+    if (sender &amp;&amp; setupDone[id][to][1] == SETUP_STATUS_DONE){
+        messageT message = {id, to, STREAM_CONTENT};
+        return message;
+    }
+    
+    return ZEROS;
+}
+
+void readMessage(){
+    messageT m = currentToClientMessage[id];
+    int mContent = m.content;
+    if (currentToClientMessage[id] != NULL){
+        if (mContent == ISH) {
+            enqueue(m,1);
+        } else if (mContent == RSH){
+            enqueue(m,1);
+        } else if (mContent == FIRST_CST){
+            enqueue(m,2);
+        } else if (mContent == LAST_CST){
+            enqueue(m,2);
+        } else if (mContent == STREAM_CONTENT){
+        }
+        currentToClientMessage[id] = NULL;
+    }
+}
+
+bool nextMessageIs(int content){
+    int index = peek();
+    if (index &lt; 0){
+        return false;
+    } else {
+        messageT nextMessage = pr[index].value;
+        return nextMessage.content == content;
+    }
+}
+messageT generateRshMessage(int content){
+    int index = peek();
+    if (index &lt; 0){
+        return NULL;
+    } else {
+        messageT nextMessage = pr[index].value;
+        messageT message = {id, nextMessage.from, content};
+        return message;
+    }
+}
+
+void finishSetup(){
+    int index = peek();
+    if (index &lt; 0){
+    } else {
+        setupDone[pr[index].value.from][id][1] = SETUP_STATUS_DONE;
+         dequeue();
+    }
+}
+
+void initialize(){
+    int i;
+    messageTPR nullMessage = {NULL, -1};
+    for (i = 0; i &lt; CAPACITY; i++){
+        pr[i] = nullMessage; 
+    }
+}</declaration>
+		<location id="id0" x="-1223" y="-229">
+		</location>
+		<location id="id1" x="-1555" y="-229">
+			<urgent/>
+		</location>
+		<location id="id2" x="-748" y="-229">
+			<urgent/>
+		</location>
+		<init ref="id1"/>
+		<transition id="id3" controllable="false">
+			<source ref="id2"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-1037" y="-178">finishSetup()</label>
+			<nail x="-977" y="-178"/>
+		</transition>
+		<transition id="id4">
+			<source ref="id0"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-1054" y="-289">nextMessageIs(ISH)</label>
+			<label kind="synchronisation" x="-1062" y="-272">toServerChannel[id]!</label>
+			<label kind="assignment" x="-1198" y="-255">currentToServerMessage[id] = generateRshMessage(RSH)</label>
+		</transition>
+		<transition id="id5">
+			<source ref="id1"/>
+			<target ref="id0"/>
+			<label kind="assignment" x="-1521" y="-229">initialize()</label>
+		</transition>
+		<transition id="id6">
+			<source ref="id0"/>
+			<target ref="id0"/>
+			<label kind="guard" x="-1495" y="-187">!nextMessageIs(ISH)</label>
+			<label kind="synchronisation" x="-1504" y="-170">toClientChannel[id]?</label>
+			<label kind="assignment" x="-1478" y="-153">readMessage()</label>
+			<nail x="-1343" y="-204"/>
+			<nail x="-1292" y="-170"/>
+		</transition>
+		<transition id="id7">
+			<source ref="id0"/>
+			<target ref="id0"/>
+			<label kind="select" x="-1334" y="-382">i : int[0,CLIENT_NUMBER-1]</label>
+			<label kind="guard" x="-1419" y="-365">i != id &amp;&amp; sender &amp;&amp; setupDone[id][i][1] != SETUP_STATUS_INITIATED</label>
+			<label kind="synchronisation" x="-1309" y="-348">toServerChannel[id]!</label>
+			<label kind="assignment" x="-1419" y="-331">currentToServerMessage[id] = generateMessage(i)</label>
+			<nail x="-1291" y="-297"/>
+			<nail x="-1172" y="-297"/>
+		</transition>
+	</template>
+	<template>
+		<name>Server</name>
+		<declaration>const int CAPACITY = 100;
+messageT buffer[CAPACITY];
+
+// QUEUE 
+int front = 0;
+int size = 0;
+
+messageT nextMessage = NULL;
+messageT top(){
+    return buffer[front];
+}
+
+bool queueEmpty(){
+    return front == size;
+}
+
+bool queueFull(){
+    return size &gt;= CAPACITY;
+}
+
+messageT dequeue(){
+  messageT m = buffer[front];
+  int i ;
+  for (i = 0; i &lt; size - 1; i++) {
+      buffer[i] = buffer[i + 1];
+  }
+  size--;
+  return m;
+}
+
+void enqueue(messageT message){
+    buffer[size] = message;    
+    size++;
+}
+
+bool bufferExcededLimit(){
+     return size &lt; CAPACITY;
+}
+
+void initialize(){
+    int i;
+    for (i = 0; i &lt; CAPACITY; i++){
+        buffer[i] = NULL;
+    }
+}
+
+void readMessage(int id){
+    enqueue(currentToServerMessage[id]);
+    currentToServerMessage[id] = NULL;
+}
+
+bool hasNextMessage(){
+    return !queueEmpty(); 
+}
+
+void getNextMessage(){
+    nextMessage = top();
+}
+
+void sendMessage(){
+    nextMessage = dequeue();
+    currentToClientMessage[nextMessage.to] = nextMessage;
+}
+</declaration>
+		<location id="id8" x="-289" y="-110">
+		</location>
+		<location id="id9" x="-442" y="-110">
+		</location>
+		<location id="id10" x="-289" y="9">
+		</location>
+		<init ref="id9"/>
+		<transition id="id11">
+			<source ref="id10"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-348" y="110">hasNextMessage()</label>
+			<label kind="synchronisation" x="-416" y="136">toClientChannel[nextMessage.to]!</label>
+			<label kind="assignment" x="-340" y="161">sendMessage()</label>
+			<nail x="-332" y="94"/>
+			<nail x="-239" y="94"/>
+		</transition>
+		<transition id="id12">
+			<source ref="id10"/>
+			<target ref="id8"/>
+			<nail x="-323" y="-51"/>
+		</transition>
+		<transition id="id13">
+			<source ref="id8"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-246" y="-59">hasNextMessage()</label>
+			<label kind="assignment" x="-246" y="-34">getNextMessage()</label>
+			<nail x="-255" y="-51"/>
+		</transition>
+		<transition id="id14">
+			<source ref="id9"/>
+			<target ref="id8"/>
+			<label kind="assignment" x="-425" y="-135">initialize()</label>
+		</transition>
+		<transition id="id15">
+			<source ref="id8"/>
+			<target ref="id8"/>
+			<label kind="select" x="-374" y="-272">i : int[0,CLIENT_NUMBER-1]</label>
+			<label kind="guard" x="-340" y="-221">!queueFull()</label>
+			<label kind="synchronisation" x="-348" y="-254">toServerChannel[i]?</label>
+			<label kind="assignment" x="-348" y="-237">readMessage(i)</label>
+			<nail x="-340" y="-195"/>
+			<nail x="-229" y="-195"/>
+		</transition>
+	</template>
+	<system>// Place template instantiations here.
+Client1 = Client(0, true);
+Client2 = Client(1, false);
+Server1 = Server();
+// List one or more processes to be composed into a system.
+system Client1, Client2, Server1;
+</system>
+	<queries>
+		<option key="--search-order" value="1"/>
+		<query>
+			<formula/>
+			<comment/>
+		</query>
+	</queries>
+</nta>
