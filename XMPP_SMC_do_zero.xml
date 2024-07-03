@@ -182,11 +182,11 @@ void initialize(){
 			<urgent/>
 		</location>
 		<init ref="id1"/>
-		<transition id="id3" controllable="false">
+		<transition id="id3">
 			<source ref="id2"/>
 			<target ref="id0"/>
-			<label kind="assignment" x="-1037" y="-178">finishSetup()</label>
-			<nail x="-977" y="-178"/>
+			<label kind="assignment" x="-1037" y="-187">finishSetup()</label>
+			<nail x="-977" y="-187"/>
 		</transition>
 		<transition id="id4">
 			<source ref="id0"/>
@@ -287,10 +287,12 @@ void sendMessage(){
 }
 </declaration>
 		<location id="id8" x="-289" y="-110">
+			<name x="-263" y="-119">reading</name>
 		</location>
 		<location id="id9" x="-442" y="-110">
 		</location>
 		<location id="id10" x="-289" y="9">
+			<name x="-263" y="0">sending</name>
 		</location>
 		<init ref="id9"/>
 		<transition id="id11">
