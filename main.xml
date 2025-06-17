@@ -163,7 +163,7 @@ void sendNextMessage(MessageDataWithPriority &amp;pq[CAPACITY], int &amp;pqSize)
     MessageDataWithPriority nextMessage = pq[getHighestPriorityIndex(pq, pqSize)];
     dequeueMessage(pq, pqSize);
     currentToServerMessage = nextMessage;
-    c = 0; 
+    senderClock = 0; 
     // reseta o relogio sempre que uma mensagem sai da fila para que seja mais facil saber o tempo que 
     //deve aguardar pela resposta de uma mensagem antes de enviar o firstCST
 }
@@ -210,11 +210,11 @@ bool shouldEndStream(){
 		<location id="id3" x="-706" y="17">
 			<name x="-875" y="8">readingNextMessage</name>
 		</location>
-		<location id="id4" x="-382" y="59">
-			<name x="-391" y="25">treatError</name>
+		<location id="id4" x="-382" y="76">
+			<name x="-391" y="42">treatError</name>
 		</location>
 		<location id="id5" x="-382" y="17">
-			<name x="-391" y="-8">treatSucessfulResult</name>
+			<name x="-365" y="-8">treatSucessfulResult</name>
 		</location>
 		<location id="id6" x="289" y="17">
 			<name x="161" y="42">removeFromReadQueue</name>
@@ -260,7 +260,7 @@ bool shouldEndStream(){
 		<transition id="id15">
 			<source ref="id9"/>
 			<target ref="id2"/>
-			<label kind="guard" x="-476" y="-187">c &gt; 40</label>
+			<label kind="guard" x="-476" y="-187">senderClock &gt; 40</label>
 			<label kind="synchronisation" x="-476" y="-170">toServerChannel!</label>
 			<label kind="assignment" x="-476" y="-153">sendNextMessage(inputMessageArrayWithId, sendSize)</label>
 			<nail x="-68" y="-153"/>
@@ -269,7 +269,6 @@ bool shouldEndStream(){
 			<source ref="id0"/>
 			<target ref="id9"/>
 			<label kind="guard" x="-680" y="-136">shouldEndStream()</label>
-			<label kind="assignment" x="-629" y="-136">c = 0</label>
 			<nail x="-671" y="-153"/>
 		</transition>
 		<transition id="id17">
@@ -325,7 +324,7 @@ bool shouldEndStream(){
 		<transition id="id26">
 			<source ref="id3"/>
 			<target ref="id4"/>
-			<label kind="guard" x="-680" y="59">isNextMessageType(receiveQueue, size, ERROR)</label>
+			<label kind="guard" x="-680" y="76">isNextMessageType(receiveQueue, size, ERROR)</label>
 			<nail x="-688" y="59"/>
 		</transition>
 		<transition id="id27">
@@ -432,8 +431,8 @@ void returnMessage(int messageContent, int messagePriority)
 }</declaration>
 		<location id="id28" x="-1708" y="-1037">
 		</location>
-		<location id="id29" x="-1470" y="-1037">
-			<name x="-1513" y="-1028">messageReceived</name>
+		<location id="id29" x="-1445" y="-1037">
+			<name x="-1488" y="-1028">messageReceived</name>
 		</location>
 		<location id="id30" x="-986" y="-1037">
 			<urgent/>
@@ -446,11 +445,11 @@ void returnMessage(int messageContent, int messagePriority)
 		</location>
 		<location id="id33" x="-739" y="-1088">
 		</location>
-		<location id="id34" x="-187" y="-1037">
+		<location id="id34" x="-263" y="-1037">
 			<urgent/>
 		</location>
-		<location id="id35" x="8" y="-1037">
-			<name x="-2" y="-1071">streamFinished</name>
+		<location id="id35" x="-59" y="-1037">
+			<name x="-69" y="-1071">streamFinished</name>
 		</location>
 		<location id="id36" x="-1198" y="-1037">
 		</location>
@@ -483,35 +482,35 @@ void returnMessage(int messageContent, int messagePriority)
 		<transition id="id42">
 			<source ref="id29"/>
 			<target ref="id34"/>
-			<label kind="guard" x="-934" y="-1215">hasClosingStreamMessage()</label>
-			<label kind="assignment" x="-951" y="-1189">returnMessage(LASTCST, 1000)</label>
-			<nail x="-1470" y="-1164"/>
-			<nail x="-297" y="-1164"/>
+			<label kind="guard" x="-909" y="-1190">hasClosingStreamMessage()</label>
+			<label kind="assignment" x="-926" y="-1164">returnMessage(LASTCST, 1000)</label>
+			<nail x="-1445" y="-1139"/>
+			<nail x="-263" y="-1139"/>
 		</transition>
 		<transition id="id43">
 			<source ref="id34"/>
 			<target ref="id35"/>
-			<label kind="guard" x="-178" y="-1062">isStreamClosed[id]</label>
+			<label kind="guard" x="-238" y="-1071">isStreamClosed[id]</label>
 		</transition>
 		<transition id="id44">
 			<source ref="id34"/>
 			<target ref="id28"/>
-			<nail x="-263" y="-901"/>
-			<nail x="-1708" y="-901"/>
+			<nail x="-263" y="-926"/>
+			<nail x="-1708" y="-926"/>
 		</transition>
 		<transition id="id45">
 			<source ref="id32"/>
 			<target ref="id34"/>
 			<label kind="synchronisation" x="-748" y="-977">toServerChannel!</label>
 			<label kind="assignment" x="-748" y="-960">returnMessage(ERROR, lastReceivedMessage.priorityValue)</label>
-			<nail x="-221" y="-1011"/>
+			<nail x="-306" y="-1011"/>
 		</transition>
 		<transition id="id46">
 			<source ref="id33"/>
 			<target ref="id34"/>
 			<label kind="synchronisation" x="-561" y="-1139">toServerChannel!</label>
 			<label kind="assignment" x="-782" y="-1122">returnMessage(RESULT, lastReceivedMessage.priorityValue)</label>
-			<nail x="-221" y="-1062"/>
+			<nail x="-297" y="-1071"/>
 		</transition>
 		<transition id="id47">
 			<source ref="id37"/>
@@ -547,8 +546,8 @@ void returnMessage(int messageContent, int messagePriority)
     isStreamInitiated[receiver] = true;
     isStreamInitiated[id] = true;
 }</declaration>
-		<location id="id52" x="-153" y="-127">
-			<name x="-204" y="-161">Initiating</name>
+		<location id="id52" x="-246" y="-127">
+			<name x="-297" y="-110">Initiating</name>
 		</location>
 		<location id="id53" x="306" y="-127">
 		</location>
@@ -565,8 +564,8 @@ void returnMessage(int messageContent, int messagePriority)
 		<transition id="id56">
 			<source ref="id52"/>
 			<target ref="id53"/>
-			<label kind="synchronisation" x="-119" y="-127">toServerChannel!</label>
-			<label kind="assignment" x="-178" y="-204">currentToServerMessage = generateMessage(id, receiver,ISH, 0)</label>
+			<label kind="synchronisation" x="-76" y="-161">toServerChannel!</label>
+			<label kind="assignment" x="-212" y="-144">currentToServerMessage = generateMessage(id, receiver,ISH, 0)</label>
 		</transition>
 	</template>
 	<template>
@@ -764,10 +763,10 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<comment/>
 			<option key="--exploration" value="1"/>
 			<option key="--rand-heur" value="4"/>
-			<result outcome="success" type="quantity" value="LB/UB: 40/60 (depth: 160)" timestamp="2025-06-16 13:40:06 -0300">
+			<result outcome="success" type="quantity" value="LB/UB: 40/60 (depth: 214)" timestamp="2025-06-16 15:50:44 -0300">
 				<option key="--exploration" value="1"/>
 				<option key="--rand-heur" value="4"/>
-				<details>LB/UB: 40/60 (depth: 160)</details>
+				<details>LB/UB: 40/60 (depth: 214)</details>
 			</result>
 		</query>
 		<query>
@@ -775,10 +774,10 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<comment/>
 			<option key="--search-order" value="1"/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="success" type="quantity" value="LB/UB: 60/40 (depth: 192)" timestamp="2025-06-16 13:40:06 -0300">
+			<result outcome="success" type="quantity" value="LB/UB: 30/70 (depth: 211)" timestamp="2025-06-16 15:50:44 -0300">
 				<option key="--search-order" value="1"/>
 				<option key="--diagnostic" value="0"/>
-				<details>LB/UB: 60/40 (depth: 192)</details>
+				<details>LB/UB: 30/70 (depth: 211)</details>
 			</result>
 		</query>
 		<query>
@@ -786,7 +785,7 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<comment/>
 			<option key="--exploration" value="0"/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="failure" type="quality" timestamp="2025-06-16 13:40:17 -0300">
+			<result outcome="failure" type="quality" timestamp="2025-06-16 15:50:44 -0300">
 				<option key="--exploration" value="0"/>
 				<option key="--diagnostic" value="0"/>
 			</result>
@@ -794,14 +793,14 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 		<query>
 			<formula>A&lt;&gt; Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished imply Server0.done</formula>
 			<comment/>
-			<result outcome="success" type="quality" timestamp="2025-06-16 13:40:06 -0300">
+			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
 			</result>
 		</query>
 		<query>
 			<formula>A&lt;&gt; Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished imply Sender0.treatLastCST</formula>
 			<comment/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="success" type="quality" timestamp="2025-06-16 13:45:46 -0300">
+			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
 				<option key="--diagnostic" value="0"/>
 			</result>
 		</query>
@@ -809,17 +808,24 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<formula>A&lt;&gt; not Sender0.hasNextMessage() imply Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished and Server0.done</formula>
 			<comment/>
 			<option key="--diagnostic" value="1"/>
+			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+				<option key="--diagnostic" value="1"/>
+			</result>
 		</query>
 		<query>
-			<formula>A[] (Sender0.nextMessageSent imply (Receiver.messageReceived and c $\leq$ MAX\_DELIVERY\_TIME))</formula>
+			<formula>A[] (Sender0.nextMessageSent imply (Receiver1.messageReceived and Sender0.senderClock &gt; 100))</formula>
 			<comment/>
+			<option key="--diagnostic" value="0"/>
+			<result outcome="failure" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+				<option key="--diagnostic" value="0"/>
+			</result>
 		</query>
 		<query>
 			<formula>A&lt;&gt; SenderStreamSetup2.Initiating imply SenderStreamSetup2.Complete</formula>
 			<comment/>
 			<option key="--exploration" value="0"/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="success" type="quality" timestamp="2025-06-16 13:40:06 -0300">
+			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
 				<option key="--exploration" value="0"/>
 				<option key="--diagnostic" value="0"/>
 			</result>
