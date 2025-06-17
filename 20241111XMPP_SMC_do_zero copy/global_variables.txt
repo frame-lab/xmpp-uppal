@@ -1,0 +1,61 @@
+typedef struct {
+  int from;
+  int to;
+  int content;
+} MessageData;
+
+typedef struct {
+  MessageData value;
+  int priorityValue;
+} MessageDataWithPriority; 
+
+const int CLIENT_NUMBER = 4;
+chan toServerChannel;
+chan toClientChannel[CLIENT_NUMBER];
+
+
+int setupDone[CLIENT_NUMBER][CLIENT_NUMBER][2];
+const int SETUP_STATUS_NONE = 0;
+const int SETUP_STATUS_INITIATED = 1;
+const int SETUP_STATUS_DONE = 2;
+
+MessageDataWithPriority currentToServerMessage; 
+MessageDataWithPriority currentToClientMessage[CLIENT_NUMBER]; 
+
+const MessageDataWithPriority ACK = {{-1,-1,-1}, -1};
+const MessageDataWithPriority NULL = {{-2,-2,-2}, -1};
+const MessageDataWithPriority ZEROS = {{0,0,0}, -1};
+const int timeLimit = 100;
+
+const int IQ_SET = 0;
+const int IQ_GET = 1;
+const int MESSAGE = 2;
+const int FIRSTCST = 3;
+const int LASTCST = 4;
+const int ISH = 5;
+const int RSH = 6;
+const int ERROR = 7;
+const int RESULT = 8;
+
+
+bool tcpConnected[CLIENT_NUMBER];
+bool saslAuthenticated[CLIENT_NUMBER];
+bool tlsEncrypted[CLIENT_NUMBER];
+bool isStreamInitiated[CLIENT_NUMBER];
+bool isStreamClosed[CLIENT_NUMBER];
+
+
+bool isSetupComplete(){
+    int i;
+    for (i = 0; i < CLIENT_NUMBER; i++){
+        if (!isStreamInitiated[i]){
+            return false;
+        } 
+    }
+    return true;
+}
+
+MessageDataWithPriority generateMessage(int from, int to, int stanzaType, int priorityValue){
+    MessageDataWithPriority message = {{from, to, stanzaType}, priorityValue};
+    return message;
+}

@@ -1,0 +1,93 @@
+const int CAPACITY = 100;
+int size = 0;
+clock t;
+bool validMessage;
+bool shouldCloseStream;
+
+MessageDataWithPriority lastReceivedMessage;
+MessageDataWithPriority receiveQueue[CAPACITY];
+
+// Priority Queue
+void enqueueMessage(MessageDataWithPriority value)
+{
+    receiveQueue[size] = value;
+    size++;
+}
+
+void readAndStoreMessage()
+{
+    MessageDataWithPriority message = currentToClientMessage[id];
+    if (currentToClientMessage[id] != NULL){
+        enqueueMessage(message);
+        currentToClientMessage[id] = NULL;
+    }
+}
+
+int getHighestPriorityIndex()
+{
+    int highestpriorityValue = -1000;
+    int ind = -1;
+    int i;
+    for (i = 0; i <= size ; i++) 
+    {
+        if (highestpriorityValue == receiveQueue[i].priorityValue
+            && ind > -1
+            && receiveQueue[ind].priorityValue < receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+        else if (highestpriorityValue
+                 < receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+    }
+ 
+    return ind;
+}
+
+void dequeueMessage()
+{
+    int ind = getHighestPriorityIndex();
+    int i;
+    lastReceivedMessage = receiveQueue[getHighestPriorityIndex()];
+    if (size > 1) {
+        for (i = ind; i <= size-1; i++) {
+            receiveQueue[i] = receiveQueue[i + 1];
+            receiveQueue[i + 1] = NULL;
+        }
+    }
+    else {
+        receiveQueue[0] = NULL;
+    }
+    size--;
+}
+
+bool isNextMessageType(int messageContent) 
+{
+    MessageDataWithPriority message = receiveQueue[getHighestPriorityIndex()];
+    return message.value.content == messageContent;
+}
+
+bool hasClosingStreamMessage()
+{
+    int i;
+    for (i = 0; i <= size ; i++) 
+    {
+        if (receiveQueue[i].value.content == FIRSTCST){
+            return true;
+        }
+    }
+    return false;
+}
+
+void returnMessage(int messageContent, int messagePriority)
+{
+    if (messageContent == LASTCST)
+    {
+        isStreamClosed[id]=true;
+    }
+    currentToServerMessage = generateMessage(id, sender, messageContent, messagePriority);
+}

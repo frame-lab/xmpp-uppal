@@ -1,0 +1,828 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>typedef struct {
+  int from;
+  int to;
+  int content;
+} MessageData;
+
+typedef struct {
+  MessageData value;
+  int priorityValue;
+} MessageDataWithPriority; 
+
+const int CLIENT_NUMBER = 4;
+chan toServerChannel;
+chan toClientChannel[CLIENT_NUMBER];
+
+
+int setupDone[CLIENT_NUMBER][CLIENT_NUMBER][2];
+const int SETUP_STATUS_NONE = 0;
+const int SETUP_STATUS_INITIATED = 1;
+const int SETUP_STATUS_DONE = 2;
+
+MessageDataWithPriority currentToServerMessage; 
+MessageDataWithPriority currentToClientMessage[CLIENT_NUMBER]; 
+
+const MessageDataWithPriority ACK = {{-1,-1,-1}, -1};
+const MessageDataWithPriority NULL = {{-2,-2,-2}, -1};
+const MessageDataWithPriority ZEROS = {{0,0,0}, -1};
+const int timeLimit = 100;
+
+const int IQ_SET = 0;
+const int IQ_GET = 1;
+const int MESSAGE = 2;
+const int FIRSTCST = 3;
+const int LASTCST = 4;
+const int ISH = 5;
+const int RSH = 6;
+const int ERROR = 7;
+const int RESULT = 8;
+
+
+bool tcpConnected[CLIENT_NUMBER];
+bool saslAuthenticated[CLIENT_NUMBER];
+bool tlsEncrypted[CLIENT_NUMBER];
+bool isStreamInitiated[CLIENT_NUMBER];
+bool isStreamClosed[CLIENT_NUMBER];
+
+
+bool isSetupComplete(){
+    int i;
+    for (i = 0; i &lt; CLIENT_NUMBER; i++){
+        if (!isStreamInitiated[i]){
+            return false;
+        } 
+    }
+    return true;
+}
+
+MessageDataWithPriority generateMessage(int from, int to, int stanzaType, int priorityValue){
+    MessageDataWithPriority message = {{from, to, stanzaType}, priorityValue};
+    return message;
+}</declaration>
+	<template>
+		<name>Sender</name>
+		<parameter>int id</parameter>
+		<declaration>const int CAPACITY = 20;
+
+clock senderClock;
+
+const int INPUTMESSAGEARRAYSIZE = 8;
+MessageData inputMessageArray[INPUTMESSAGEARRAYSIZE] = {{0, 3, IQ_SET}, {0, 3, IQ_SET}, {0, 2, MESSAGE}, {0, 2, IQ_SET}, {0, 3, MESSAGE}, {0, 3, IQ_SET}, {0, 1, MESSAGE}, {0, 3, IQ_SET}, {0, 2, IQ_GET}, {0, 1, MESSAGE}}; 
+MessageDataWithPriority inputMessageArrayWithId[CAPACITY];
+MessageDataWithPriority sentMessagesReference[INPUTMESSAGEARRAYSIZE + 1]; 
+int sendSize = 0;
+
+MessageDataWithPriority receiveQueue[CAPACITY];
+int size = 0;
+
+int getHighestPriorityIndex(MessageDataWithPriority receiveQueue[CAPACITY], int pqSize)
+{
+    int highestpriorityValue = -10000;
+    int ind = -1;
+    int i;
+    for (i = 0; i &lt; pqSize; i++) 
+    {
+        if (highestpriorityValue == receiveQueue[i].priorityValue
+            &amp;&amp; ind &gt; -1
+            &amp;&amp; receiveQueue[ind].priorityValue &lt; receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+        else if (highestpriorityValue
+                 &lt; receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+    }
+ 
+    return ind;
+}
+
+void enqueueMessage(MessageDataWithPriority &amp;pq[CAPACITY], int &amp;pqSize, MessageDataWithPriority message)
+{
+    pq[pqSize] = message;
+    pqSize++;
+}
+
+void initializeSystem()
+{
+    int i;
+    MessageDataWithPriority nullMessage = NULL;
+    isStreamClosed[id] = true; // A propria stream sempre inicializa fechada porque o controle do fim da stream é dos receivers
+    for (i = 0; i &lt; CAPACITY; i++)
+    {
+        receiveQueue[i] = nullMessage; 
+    }
+    for (i = 0; i &lt; INPUTMESSAGEARRAYSIZE; i++)
+    {
+        int messageIndexRef =  i + 1; // soma 1 para que a prioridade seja sempre maior do que zero. Zero é a prioridade do fim da comunicação
+        MessageDataWithPriority messageWithId =  {inputMessageArray[i], messageIndexRef}; 
+        sentMessagesReference[messageIndexRef] = messageWithId;
+        enqueueMessage(inputMessageArrayWithId, sendSize, messageWithId);
+    }
+    for (i = INPUTMESSAGEARRAYSIZE; i &lt; CAPACITY; i++){
+        inputMessageArrayWithId[i] = nullMessage;
+    }
+    for (i = 1; i &lt; CLIENT_NUMBER; i++){
+        MessageData firstCstMessage = { id, i , FIRSTCST} ;
+        MessageDataWithPriority firstCstMessageTPR = { firstCstMessage, 0} ;
+        enqueueMessage(inputMessageArrayWithId, sendSize, firstCstMessageTPR);
+    }
+}
+
+void readAndStoreMessage(MessageDataWithPriority &amp;pq[CAPACITY], int &amp;pqSize){
+    MessageDataWithPriority message = currentToClientMessage[id];
+    if (currentToClientMessage[id] != NULL){
+        enqueueMessage(pq, pqSize, message);
+        currentToClientMessage[id] = NULL;
+    }
+}
+
+void dequeueMessage(MessageDataWithPriority &amp;pq[CAPACITY], int &amp;pqSize)
+{
+    int ind = getHighestPriorityIndex(pq, pqSize);
+    int i;
+    if (pqSize &gt; 1){ 
+        for (i = ind; i &lt;= pqSize-1; i++) {
+            pq[i] = pq[i + 1];
+            pq[i + 1] = NULL;
+        }
+    } else {
+        pq[0] = NULL;
+    }
+    pqSize--;
+}
+
+void sendNextMessage(MessageDataWithPriority &amp;pq[CAPACITY], int &amp;pqSize)
+{
+    MessageDataWithPriority nextMessage = pq[getHighestPriorityIndex(pq, pqSize)];
+    dequeueMessage(pq, pqSize);
+    currentToServerMessage = nextMessage;
+    c = 0; 
+    // reseta o relogio sempre que uma mensagem sai da fila para que seja mais facil saber o tempo que 
+    //deve aguardar pela resposta de uma mensagem antes de enviar o firstCST
+}
+
+bool canReceiveMessage(){
+    return size &lt; CAPACITY;
+}
+
+
+bool hasReceivedMessage(){
+    return currentToClientMessage[id] != NULL;
+}
+
+bool hasNextMessage() {
+    return getHighestPriorityIndex(inputMessageArrayWithId,sendSize) != -1;
+}
+
+bool isNextMessageType(MessageDataWithPriority pq[CAPACITY], int pqSize, int messageContent) 
+{
+    MessageDataWithPriority message = pq[getHighestPriorityIndex(pq, pqSize)];
+    return message.value.content == messageContent;
+}
+
+void retryMessage(MessageDataWithPriority &amp;srcPq[CAPACITY], int &amp;srcPqSize, MessageDataWithPriority &amp;destPq[CAPACITY], int &amp;destPqSize){
+    MessageDataWithPriority srcMessage = srcPq[getHighestPriorityIndex(srcPq, srcPqSize)];
+    MessageDataWithPriority newMessage = sentMessagesReference[srcMessage.priorityValue];
+    enqueueMessage(destPq, destPqSize, newMessage);
+}
+
+
+bool shouldEndStream(){
+    return hasNextMessage() &amp;&amp; isNextMessageType(inputMessageArrayWithId, sendSize, FIRSTCST);
+}</declaration>
+		<location id="id0" x="-739" y="-212">
+			<name x="-968" y="-187">loopReadingSendingMessages</name>
+		</location>
+		<location id="id1" x="-935" y="-212">
+			<name x="-986" y="-204">initializing</name>
+			<urgent/>
+		</location>
+		<location id="id2" x="-68" y="-212">
+			<name x="-51" y="-229">nextMessageSent</name>
+		</location>
+		<location id="id3" x="-706" y="17">
+			<name x="-875" y="8">readingNextMessage</name>
+		</location>
+		<location id="id4" x="-382" y="59">
+			<name x="-391" y="25">treatError</name>
+		</location>
+		<location id="id5" x="-382" y="17">
+			<name x="-391" y="-8">treatSucessfulResult</name>
+		</location>
+		<location id="id6" x="289" y="17">
+			<name x="161" y="42">removeFromReadQueue</name>
+			<urgent/>
+		</location>
+		<location id="id7" x="119" y="17">
+			<name x="51" y="-34">finishingMessageRead</name>
+			<urgent/>
+		</location>
+		<location id="id8" x="-382" y="-25">
+			<name x="-391" y="-59">treatLastCST</name>
+		</location>
+		<location id="id9" x="-510" y="-153">
+			<name x="-527" y="-127">endingStream</name>
+		</location>
+		<location id="id10" x="-714" y="-68">
+		</location>
+		<init ref="id1"/>
+		<transition id="id11">
+			<source ref="id10"/>
+			<target ref="id0"/>
+			<label kind="guard" x="-705" y="-110">!hasReceivedMessage()</label>
+			<nail x="-705" y="-127"/>
+		</transition>
+		<transition id="id12">
+			<source ref="id10"/>
+			<target ref="id3"/>
+			<label kind="guard" x="-884" y="-42">hasReceivedMessage()</label>
+		</transition>
+		<transition id="id13">
+			<source ref="id0"/>
+			<target ref="id10"/>
+			<label kind="guard" x="-935" y="-153">canReceiveMessage()</label>
+			<label kind="synchronisation" x="-943" y="-136">toClientChannel[id]?</label>
+			<label kind="assignment" x="-1088" y="-119">readAndStoreMessage(receiveQueue, size)</label>
+			<nail x="-765" y="-127"/>
+		</transition>
+		<transition id="id14">
+			<source ref="id9"/>
+			<target ref="id0"/>
+			<label kind="guard" x="-663" y="-195">hasNextMessage()</label>
+		</transition>
+		<transition id="id15">
+			<source ref="id9"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-476" y="-187">c &gt; 40</label>
+			<label kind="synchronisation" x="-476" y="-170">toServerChannel!</label>
+			<label kind="assignment" x="-476" y="-153">sendNextMessage(inputMessageArrayWithId, sendSize)</label>
+			<nail x="-68" y="-153"/>
+		</transition>
+		<transition id="id16">
+			<source ref="id0"/>
+			<target ref="id9"/>
+			<label kind="guard" x="-680" y="-136">shouldEndStream()</label>
+			<label kind="assignment" x="-629" y="-136">c = 0</label>
+			<nail x="-671" y="-153"/>
+		</transition>
+		<transition id="id17">
+			<source ref="id8"/>
+			<target ref="id7"/>
+		</transition>
+		<transition id="id18">
+			<source ref="id3"/>
+			<target ref="id8"/>
+			<label kind="guard" x="-680" y="-25">isNextMessageType(receiveQueue, size, LASTCST)</label>
+			<nail x="-680" y="-25"/>
+		</transition>
+		<transition id="id19">
+			<source ref="id7"/>
+			<target ref="id6"/>
+			<label kind="assignment" x="136" y="25">dequeueMessage(receiveQueue,size)</label>
+		</transition>
+		<transition id="id20">
+			<source ref="id4"/>
+			<target ref="id7"/>
+			<label kind="assignment" x="-357" y="59">retryMessage(receiveQueue,size, inputMessageArrayWithId, sendSize)</label>
+		</transition>
+		<transition id="id21">
+			<source ref="id5"/>
+			<target ref="id7"/>
+		</transition>
+		<transition id="id22">
+			<source ref="id2"/>
+			<target ref="id0"/>
+			<nail x="-68" y="-280"/>
+			<nail x="-705" y="-280"/>
+		</transition>
+		<transition id="id23">
+			<source ref="id6"/>
+			<target ref="id0"/>
+			<nail x="289" y="-306"/>
+			<nail x="-731" y="-297"/>
+			<nail x="-739" y="-238"/>
+		</transition>
+		<transition id="id24">
+			<source ref="id0"/>
+			<target ref="id2"/>
+			<label kind="guard" x="-688" y="-272">hasNextMessage() &amp;&amp; !shouldEndStream()</label>
+			<label kind="synchronisation" x="-689" y="-254">toServerChannel!</label>
+			<label kind="assignment" x="-688" y="-238">sendNextMessage(inputMessageArrayWithId, sendSize)</label>
+		</transition>
+		<transition id="id25">
+			<source ref="id1"/>
+			<target ref="id0"/>
+			<label kind="guard" x="-909" y="-254">isSetupComplete()</label>
+			<label kind="assignment" x="-909" y="-237">initializeSystem()</label>
+		</transition>
+		<transition id="id26">
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="guard" x="-680" y="59">isNextMessageType(receiveQueue, size, ERROR)</label>
+			<nail x="-688" y="59"/>
+		</transition>
+		<transition id="id27">
+			<source ref="id3"/>
+			<target ref="id5"/>
+			<label kind="guard" x="-680" y="17">isNextMessageType(receiveQueue, size, RESULT)</label>
+		</transition>
+	</template>
+	<template>
+		<name>Receiver</name>
+		<parameter>int sender, int id, int errorProbability</parameter>
+		<declaration>const int CAPACITY = 100;
+int size = 0;
+clock t;
+bool validMessage;
+bool shouldCloseStream;
+
+MessageDataWithPriority lastReceivedMessage;
+MessageDataWithPriority receiveQueue[CAPACITY];
+
+// Priority Queue
+void enqueueMessage(MessageDataWithPriority value)
+{
+    receiveQueue[size] = value;
+    size++;
+}
+
+void readAndStoreMessage()
+{
+    MessageDataWithPriority message = currentToClientMessage[id];
+    if (currentToClientMessage[id] != NULL){
+        enqueueMessage(message);
+        currentToClientMessage[id] = NULL;
+    }
+}
+
+int getHighestPriorityIndex()
+{
+    int highestpriorityValue = -1000;
+    int ind = -1;
+    int i;
+    for (i = 0; i &lt;= size ; i++) 
+    {
+        if (highestpriorityValue == receiveQueue[i].priorityValue
+            &amp;&amp; ind &gt; -1
+            &amp;&amp; receiveQueue[ind].priorityValue &lt; receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+        else if (highestpriorityValue
+                 &lt; receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+    }
+ 
+    return ind;
+}
+
+void dequeueMessage()
+{
+    int ind = getHighestPriorityIndex();
+    int i;
+    lastReceivedMessage = receiveQueue[getHighestPriorityIndex()];
+    if (size &gt; 1) {
+        for (i = ind; i &lt;= size-1; i++) {
+            receiveQueue[i] = receiveQueue[i + 1];
+            receiveQueue[i + 1] = NULL;
+        }
+    }
+    else {
+        receiveQueue[0] = NULL;
+    }
+    size--;
+}
+
+bool isNextMessageType(int messageContent) 
+{
+    MessageDataWithPriority message = receiveQueue[getHighestPriorityIndex()];
+    return message.value.content == messageContent;
+}
+
+bool hasClosingStreamMessage()
+{
+    int i;
+    for (i = 0; i &lt;= size ; i++) 
+    {
+        if (receiveQueue[i].value.content == FIRSTCST){
+            return true;
+        }
+    }
+    return false;
+}
+
+void returnMessage(int messageContent, int messagePriority)
+{
+    if (messageContent == LASTCST)
+    {
+        isStreamClosed[id]=true;
+    }
+    currentToServerMessage = generateMessage(id, sender, messageContent, messagePriority);
+}</declaration>
+		<location id="id28" x="-1708" y="-1037">
+		</location>
+		<location id="id29" x="-1470" y="-1037">
+			<name x="-1513" y="-1028">messageReceived</name>
+		</location>
+		<location id="id30" x="-986" y="-1037">
+			<urgent/>
+		</location>
+		<location id="id31" x="-824" y="-1037">
+			<urgent/>
+		</location>
+		<location id="id32" x="-739" y="-986">
+			<name x="-799" y="-986">error</name>
+		</location>
+		<location id="id33" x="-739" y="-1088">
+		</location>
+		<location id="id34" x="-187" y="-1037">
+			<urgent/>
+		</location>
+		<location id="id35" x="8" y="-1037">
+			<name x="-2" y="-1071">streamFinished</name>
+		</location>
+		<location id="id36" x="-1198" y="-1037">
+		</location>
+		<branchpoint id="id37" x="-739" y="-1037"/>
+		<init ref="id28"/>
+		<transition id="id38">
+			<source ref="id36"/>
+			<target ref="id30"/>
+			<label kind="guard" x="-1182" y="-1028">isNextMessageType(IQ_GET)</label>
+			<nail x="-1199" y="-1003"/>
+			<nail x="-986" y="-1003"/>
+		</transition>
+		<transition id="id39">
+			<source ref="id36"/>
+			<target ref="id30"/>
+			<label kind="guard" x="-1182" y="-1062">isNextMessageType(IQ_SET)</label>
+		</transition>
+		<transition id="id40">
+			<source ref="id36"/>
+			<target ref="id30"/>
+			<label kind="guard" x="-1181" y="-1096">isNextMessageType(MESSAGE)</label>
+			<nail x="-1198" y="-1071"/>
+			<nail x="-985" y="-1071"/>
+		</transition>
+		<transition id="id41">
+			<source ref="id29"/>
+			<target ref="id36"/>
+			<label kind="guard" x="-1428" y="-1054">!hasClosingStreamMessage()</label>
+		</transition>
+		<transition id="id42">
+			<source ref="id29"/>
+			<target ref="id34"/>
+			<label kind="guard" x="-934" y="-1215">hasClosingStreamMessage()</label>
+			<label kind="assignment" x="-951" y="-1189">returnMessage(LASTCST, 1000)</label>
+			<nail x="-1470" y="-1164"/>
+			<nail x="-297" y="-1164"/>
+		</transition>
+		<transition id="id43">
+			<source ref="id34"/>
+			<target ref="id35"/>
+			<label kind="guard" x="-178" y="-1062">isStreamClosed[id]</label>
+		</transition>
+		<transition id="id44">
+			<source ref="id34"/>
+			<target ref="id28"/>
+			<nail x="-263" y="-901"/>
+			<nail x="-1708" y="-901"/>
+		</transition>
+		<transition id="id45">
+			<source ref="id32"/>
+			<target ref="id34"/>
+			<label kind="synchronisation" x="-748" y="-977">toServerChannel!</label>
+			<label kind="assignment" x="-748" y="-960">returnMessage(ERROR, lastReceivedMessage.priorityValue)</label>
+			<nail x="-221" y="-1011"/>
+		</transition>
+		<transition id="id46">
+			<source ref="id33"/>
+			<target ref="id34"/>
+			<label kind="synchronisation" x="-561" y="-1139">toServerChannel!</label>
+			<label kind="assignment" x="-782" y="-1122">returnMessage(RESULT, lastReceivedMessage.priorityValue)</label>
+			<nail x="-221" y="-1062"/>
+		</transition>
+		<transition id="id47">
+			<source ref="id37"/>
+			<target ref="id32"/>
+			<label kind="probability" x="-859" y="-1020">errorProbability</label>
+		</transition>
+		<transition id="id48">
+			<source ref="id37"/>
+			<target ref="id33"/>
+			<label kind="probability" x="-884" y="-1079">100 - errorProbability</label>
+		</transition>
+		<transition id="id49" controllable="false">
+			<source ref="id31"/>
+			<target ref="id37"/>
+		</transition>
+		<transition id="id50">
+			<source ref="id30"/>
+			<target ref="id31"/>
+			<label kind="assignment" x="-969" y="-1037">dequeueMessage()</label>
+		</transition>
+		<transition id="id51">
+			<source ref="id28"/>
+			<target ref="id29"/>
+			<label kind="guard" x="-1691" y="-1105">isSetupComplete()</label>
+			<label kind="synchronisation" x="-1691" y="-1079">toClientChannel[id]?</label>
+			<label kind="assignment" x="-1691" y="-1062">readAndStoreMessage()</label>
+		</transition>
+	</template>
+	<template>
+		<name>SenderStreamSetup</name>
+		<parameter>int id, int receiver</parameter>
+		<declaration>void  finishStreamSetup(){
+    isStreamInitiated[receiver] = true;
+    isStreamInitiated[id] = true;
+}</declaration>
+		<location id="id52" x="-153" y="-127">
+			<name x="-204" y="-161">Initiating</name>
+		</location>
+		<location id="id53" x="306" y="-127">
+		</location>
+		<location id="id54" x="535" y="-127">
+			<name x="525" y="-161">Complete</name>
+		</location>
+		<init ref="id52"/>
+		<transition id="id55">
+			<source ref="id53"/>
+			<target ref="id54"/>
+			<label kind="synchronisation" x="331" y="-170">toClientChannel[id]?</label>
+			<label kind="assignment" x="323" y="-153">finishStreamSetup()</label>
+		</transition>
+		<transition id="id56">
+			<source ref="id52"/>
+			<target ref="id53"/>
+			<label kind="synchronisation" x="-119" y="-127">toServerChannel!</label>
+			<label kind="assignment" x="-178" y="-204">currentToServerMessage = generateMessage(id, receiver,ISH, 0)</label>
+		</transition>
+	</template>
+	<template>
+		<name>ReceiverStreamSetup</name>
+		<parameter>int sender, int id</parameter>
+		<location id="id57" x="-59" y="42">
+			<name x="-69" y="8">Complete</name>
+		</location>
+		<location id="id58" x="-654" y="42">
+		</location>
+		<location id="id59" x="-867" y="42">
+			<name x="-877" y="8">Initiating</name>
+		</location>
+		<init ref="id59"/>
+		<transition id="id60">
+			<source ref="id59"/>
+			<target ref="id58"/>
+			<label kind="synchronisation" x="-849" y="25">toClientChannel[id]?</label>
+		</transition>
+		<transition id="id61">
+			<source ref="id58"/>
+			<target ref="id57"/>
+			<label kind="synchronisation" x="-552" y="0">toServerChannel!</label>
+			<label kind="assignment" x="-629" y="17">currentToServerMessage = generateMessage(id, sender,RSH, 0)</label>
+		</transition>
+	</template>
+	<template>
+		<name>Server</name>
+		<declaration>const int CAPACITY = 200;
+MessageDataWithPriority buffer[CAPACITY];
+
+// QUEUE 
+int front = 0;
+int size = 0;
+clock c;
+
+MessageDataWithPriority nextMessage = NULL;
+MessageDataWithPriority top(){
+    return buffer[front];
+}
+
+bool queueEmpty(){
+    return top() == NULL;
+}
+
+bool queueFull(){
+    return size &gt;= CAPACITY;
+}
+MessageDataWithPriority dequeueMessage(){
+    MessageDataWithPriority m = buffer[front];
+    int i ;
+    if (size &gt; 1) {
+        for (i = 0; i &lt; size - 1; i++) {
+            buffer[i] = buffer[i + 1];
+            buffer[i + 1] = NULL;
+        }
+    } else {
+        buffer[0] = NULL;
+    }
+    size--;
+    return m;
+}
+
+void enqueueMessage(MessageDataWithPriority message){
+    buffer[size] = message;    
+    size++;
+}
+
+
+void requeueMessageWithLessPriority(){
+    MessageDataWithPriority message = NULL;
+    message = dequeueMessage();
+    if (message.priorityValue &gt; 0){
+        message.priorityValue--;
+    }
+    enqueueMessage(message);
+}
+
+bool bufferExcededLimit(){
+     return size &lt; CAPACITY;
+}
+
+void initializeSystem(){
+    int i;
+    for (i = 0; i &lt; CAPACITY; i++){
+        buffer[i] = NULL;
+    }
+}
+
+void readAndStoreMessage(){
+    if (currentToServerMessage != NULL)
+    {
+        enqueueMessage(currentToServerMessage);
+        currentToServerMessage = NULL;
+    }
+}
+
+bool hasNextMessage(){
+    return !queueEmpty(); 
+}
+
+void getNextMessage(){
+    nextMessage = top();
+    c := 0;
+}
+
+void sendMessage(){
+    nextMessage = dequeueMessage();
+    currentToClientMessage[nextMessage.value.to] = nextMessage;
+    nextMessage= NULL;
+}
+
+bool allStreamsClosed(){
+    int i;
+    for (i=0; i&lt;CLIENT_NUMBER;i++){
+        if (!isStreamClosed[i]){
+            return false;
+        }
+    }
+    return true;
+}
+</declaration>
+		<location id="id62" x="-289" y="-110">
+			<name x="-272" y="-102">reading</name>
+		</location>
+		<location id="id63" x="-476" y="-110">
+			<urgent/>
+		</location>
+		<location id="id64" x="-289" y="85">
+			<name x="-263" y="76">sending</name>
+		</location>
+		<location id="id65" x="-34" y="-110">
+			<name x="-44" y="-144">done</name>
+		</location>
+		<init ref="id63"/>
+		<transition id="id66">
+			<source ref="id64"/>
+			<target ref="id62"/>
+			<label kind="guard" x="-289" y="-46">c &gt; 20</label>
+			<label kind="assignment" x="-289" y="-12">requeueMessageWithLessPriority()</label>
+		</transition>
+		<transition id="id67">
+			<source ref="id62"/>
+			<target ref="id65"/>
+			<label kind="guard" x="-221" y="-136">allStreamsClosed()</label>
+		</transition>
+		<transition id="id68">
+			<source ref="id64"/>
+			<target ref="id62"/>
+			<label kind="synchronisation" x="-654" y="-34">toClientChannel[nextMessage.value.to]!</label>
+			<label kind="assignment" x="-501" y="-17">sendMessage()</label>
+			<nail x="-561" y="-51"/>
+		</transition>
+		<transition id="id69">
+			<source ref="id62"/>
+			<target ref="id64"/>
+			<label kind="guard" x="-127" y="-93">hasNextMessage()</label>
+			<label kind="assignment" x="-102" y="-76">getNextMessage()</label>
+			<nail x="59" y="-51"/>
+		</transition>
+		<transition id="id70">
+			<source ref="id63"/>
+			<target ref="id62"/>
+			<label kind="assignment" x="-527" y="-153">initializeSystem()</label>
+		</transition>
+		<transition id="id71">
+			<source ref="id62"/>
+			<target ref="id62"/>
+			<label kind="guard" x="-340" y="-272">!queueFull()</label>
+			<label kind="synchronisation" x="-348" y="-255">toServerChannel?</label>
+			<label kind="assignment" x="-348" y="-229">readAndStoreMessage()</label>
+			<nail x="-340" y="-195"/>
+			<nail x="-229" y="-195"/>
+		</transition>
+	</template>
+	<system>Sender0 = Sender(0);
+Server0 = Server();
+
+Receiver1 = Receiver(0,1,0);
+SenderStreamSetup1 = SenderStreamSetup(0,1);
+ReceiverStreamSetup1 = ReceiverStreamSetup(0,1);
+
+Receiver2 = Receiver(0,2,0);
+SenderStreamSetup2 = SenderStreamSetup(0,2);
+ReceiverStreamSetup2 = ReceiverStreamSetup(0,2);
+
+Receiver3 = Receiver(0,3,0);
+SenderStreamSetup3 = SenderStreamSetup(0,3);
+ReceiverStreamSetup3 = ReceiverStreamSetup(0,3);
+
+system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Receiver2, SenderStreamSetup2, ReceiverStreamSetup2, Receiver3, SenderStreamSetup3, ReceiverStreamSetup3;</system>
+	<queries>
+		<query>
+			<formula>E&lt;&gt; Server0.done</formula>
+			<comment/>
+			<option key="--exploration" value="1"/>
+			<option key="--rand-heur" value="4"/>
+			<result outcome="success" type="quantity" value="LB/UB: 40/60 (depth: 160)" timestamp="2025-06-16 13:40:06 -0300">
+				<option key="--exploration" value="1"/>
+				<option key="--rand-heur" value="4"/>
+				<details>LB/UB: 40/60 (depth: 160)</details>
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt;(Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished)</formula>
+			<comment/>
+			<option key="--search-order" value="1"/>
+			<option key="--diagnostic" value="0"/>
+			<result outcome="success" type="quantity" value="LB/UB: 60/40 (depth: 192)" timestamp="2025-06-16 13:40:06 -0300">
+				<option key="--search-order" value="1"/>
+				<option key="--diagnostic" value="0"/>
+				<details>LB/UB: 60/40 (depth: 192)</details>
+			</result>
+		</query>
+		<query>
+			<formula>A&lt;&gt;(Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished)</formula>
+			<comment/>
+			<option key="--exploration" value="0"/>
+			<option key="--diagnostic" value="0"/>
+			<result outcome="failure" type="quality" timestamp="2025-06-16 13:40:17 -0300">
+				<option key="--exploration" value="0"/>
+				<option key="--diagnostic" value="0"/>
+			</result>
+		</query>
+		<query>
+			<formula>A&lt;&gt; Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished imply Server0.done</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2025-06-16 13:40:06 -0300">
+			</result>
+		</query>
+		<query>
+			<formula>A&lt;&gt; Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished imply Sender0.treatLastCST</formula>
+			<comment/>
+			<option key="--diagnostic" value="0"/>
+			<result outcome="success" type="quality" timestamp="2025-06-16 13:45:46 -0300">
+				<option key="--diagnostic" value="0"/>
+			</result>
+		</query>
+		<query>
+			<formula>A&lt;&gt; not Sender0.hasNextMessage() imply Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished and Server0.done</formula>
+			<comment/>
+			<option key="--diagnostic" value="1"/>
+		</query>
+		<query>
+			<formula>A[] (Sender0.nextMessageSent imply (Receiver.messageReceived and c $\leq$ MAX\_DELIVERY\_TIME))</formula>
+			<comment/>
+		</query>
+		<query>
+			<formula>A&lt;&gt; SenderStreamSetup2.Initiating imply SenderStreamSetup2.Complete</formula>
+			<comment/>
+			<option key="--exploration" value="0"/>
+			<option key="--diagnostic" value="0"/>
+			<result outcome="success" type="quality" timestamp="2025-06-16 13:40:06 -0300">
+				<option key="--exploration" value="0"/>
+				<option key="--diagnostic" value="0"/>
+			</result>
+		</query>
+	</queries>
+</nta>

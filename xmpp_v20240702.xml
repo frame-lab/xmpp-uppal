@@ -5,17 +5,26 @@
 
 // Continuar com o setup de recepção de mensagens. SOMENTE recepção de mensagens no cliente
 
+typedef struct
+{
+  int from;
+  int to;
+  int content;
+} messageType;
+
+messageType cClientMessage;
+messageType cServerMessage;
+
 const int CLIENTNUMBER = 2;
 chan toServerChannel[CLIENTNUMBER];
 chan toClientChannel[CLIENTNUMBER];
 
-const int ISH = 0;
-const int RSH = 1;
-const int PRESENCE = 2;
-const int MESSAGE = 3;
-const int IQ = 4;
-const int FIRSTCST = 5;
-const int LASTCST = 6;
+const int IQ = 0;
+const int MESSAGE = 1;
+const int FIRSTCST = 2;
+const int LASTCST = 3;
+const int ISH = 4;
+const int RSH = 5;
 
 chan req;
 chan rsh[CLIENTNUMBER];
@@ -25,374 +34,402 @@ chan presence[CLIENTNUMBER];
 chan iq[CLIENTNUMBER];
 chan firstCst[CLIENTNUMBER];
 chan lastCst[CLIENTNUMBER];
+chan error[CLIENTNUMBER];
 
 bool tcpConnected[CLIENTNUMBER];
 bool saslAuthenticated[CLIENTNUMBER];
 bool tlsEncrypted[CLIENTNUMBER];
+bool streamInitiated[CLIENTNUMBER];
 
-int cContent,cSender,cReceiver;
 </declaration>
+	<template>
+		<name>SenderStreamSetup</name>
+		<parameter>int id, int receiver</parameter>
+		<declaration>clock c;
+
+void setupMessage(int from, int to, int content){
+    messageType message = {from, to, content};
+    cClientMessage = message;
+    c = 0;
+}</declaration>
+		<location id="id0" x="-799" y="17">
+		</location>
+		<location id="id1" x="-586" y="17">
+		</location>
+		<location id="id2" x="-280" y="17">
+		</location>
+		<init ref="id0"/>
+		<transition id="id3">
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="-484" y="0">rsh[receiver]?</label>
+			<label kind="assignment" x="-510" y="17">streamInitiated[id]=true</label>
+		</transition>
+		<transition id="id4">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="-782" y="25">req!</label>
+			<label kind="assignment" x="-782" y="42">setupMessage(id, receiver, ISH)</label>
+		</transition>
+	</template>
+	<template>
+		<name>ReceiverStreamSetup</name>
+		<parameter>int id, int receiver</parameter>
+		<declaration>clock c;
+
+void setupMessage(int from, int to, int content){
+    messageType message = {from, to, content};
+    cClientMessage = message;
+    c = 0;
+}</declaration>
+		<location id="id5" x="-417" y="-42">
+		</location>
+		<location id="id6" x="-204" y="-42">
+		</location>
+		<location id="id7" x="102" y="-42">
+		</location>
+		<location id="id8" x="221" y="-42">
+		</location>
+		<init ref="id5"/>
+		<transition id="id9">
+			<source ref="id7"/>
+			<target ref="id8"/>
+			<label kind="assignment" x="120" y="-42">streamInitiated[id]=true</label>
+		</transition>
+		<transition id="id10">
+			<source ref="id6"/>
+			<target ref="id7"/>
+			<label kind="synchronisation" x="-102" y="-59">rsh[receiver]?</label>
+			<label kind="assignment" x="-178" y="-34">setupMessage(id, receiver, RSH)</label>
+		</transition>
+		<transition id="id11">
+			<source ref="id5"/>
+			<target ref="id6"/>
+			<label kind="synchronisation" x="-400" y="-34">ish[id]?</label>
+		</transition>
+	</template>
 	<template>
 		<name>TCPConnectionToServer</name>
 		<parameter>int clientId</parameter>
-		<location id="id0" x="-289" y="0">
+		<location id="id12" x="-340" y="0">
 		</location>
-		<location id="id1" x="-127" y="0">
+		<location id="id13" x="-127" y="0">
 			<name x="-178" y="-42">TcpEstablished</name>
 		</location>
-		<init ref="id0"/>
-		<transition id="id2">
-			<source ref="id0"/>
-			<target ref="id1"/>
+		<init ref="id12"/>
+		<transition id="id14">
+			<source ref="id12"/>
+			<target ref="id13"/>
 			<label kind="assignment" x="-331" y="34">tcpConnected[clientId] = true</label>
 		</transition>
 	</template>
 	<template>
 		<name>TLSEncryption</name>
 		<parameter>int clientId</parameter>
-		<location id="id3" x="-391" y="-34">
+		<location id="id15" x="-391" y="-34">
 		</location>
-		<location id="id4" x="-187" y="-34">
+		<location id="id16" x="-187" y="-34">
 		</location>
-		<location id="id5" x="102" y="-34">
+		<location id="id17" x="102" y="-34">
 			<name x="92" y="-68">TlsEncrypted</name>
 		</location>
-		<init ref="id3"/>
-		<transition id="id6">
-			<source ref="id4"/>
-			<target ref="id5"/>
+		<init ref="id15"/>
+		<transition id="id18">
+			<source ref="id16"/>
+			<target ref="id17"/>
 			<label kind="assignment" x="-161" y="-25">tlsEncrypted[clientId] = true</label>
 		</transition>
-		<transition id="id7">
-			<source ref="id3"/>
-			<target ref="id4"/>
+		<transition id="id19">
+			<source ref="id15"/>
+			<target ref="id16"/>
 			<label kind="guard" x="-374" y="-68">tcpConnected[clientId]</label>
 		</transition>
 	</template>
 	<template>
 		<name>SASLAuthenticationToServer</name>
 		<parameter>int clientId</parameter>
-		<location id="id8" x="-382" y="-8">
+		<location id="id20" x="-382" y="-8">
 		</location>
-		<location id="id9" x="-119" y="-8">
+		<location id="id21" x="-119" y="-8">
 		</location>
-		<location id="id10" x="195" y="-8">
+		<location id="id22" x="195" y="-8">
 			<name x="185" y="-42">SaslAuthenticated</name>
 		</location>
-		<init ref="id8"/>
-		<transition id="id11">
-			<source ref="id9"/>
-			<target ref="id10"/>
+		<init ref="id20"/>
+		<transition id="id23">
+			<source ref="id21"/>
+			<target ref="id22"/>
 			<label kind="assignment" x="-101" y="-8">saslAuthenticated[clientId] = true</label>
 		</transition>
-		<transition id="id12">
-			<source ref="id8"/>
-			<target ref="id9"/>
+		<transition id="id24">
+			<source ref="id20"/>
+			<target ref="id21"/>
 			<label kind="guard" x="-331" y="-33">tlsEncrypted[clientId]</label>
 		</transition>
 	</template>
 	<template>
-		<name x="5" y="5">Client</name>
-		<parameter>int id, bool sender</parameter>
-		<declaration>int receiver;
-clock c;
+		<name>ClientSender</name>
+		<parameter>int id, int receiver</parameter>
+		<declaration>clock c;
 
 void setupMessage(int from, int to, int content){
-    cContent = content;
-    cSender = from;
-    cReceiver = to;
-    receiver = to;
-}
-
-</declaration>
-		<location id="id13" x="-2006" y="-204">
-			<name x="-2023" y="-187">Idle</name>
+    messageType message = {from, to, content};
+    cClientMessage = message;
+    c = 0;
+}</declaration>
+		<location id="id25" x="-187" y="-34">
+			<name x="-221" y="-17">SendingMessages</name>
 		</location>
-		<location id="id14" x="-1759" y="-348">
-			<name x="-1785" y="-323">WaitingRSH</name>
+		<location id="id26" x="187" y="-34">
 		</location>
-		<location id="id15" x="-1759" y="-76">
-			<name x="-1793" y="-59">SendingRSH</name>
+		<location id="id27" x="-187" y="-179">
+			<name x="-197" y="-213">ReceivingMessages</name>
 		</location>
-		<location id="id16" x="-1445" y="-348">
+		<location id="id28" x="170" y="-85">
 		</location>
-		<location id="id17" x="-1445" y="-510">
-			<name x="-1455" y="-544">SendPresence</name>
+		<location id="id29" x="331" y="-85">
+			<name x="357" y="-102">EndOfStream</name>
 			<committed/>
 		</location>
-		<location id="id18" x="-1139" y="-340">
-			<name x="-1149" y="-374">SendIq</name>
-			<committed/>
+		<location id="id30" x="-577" y="-34">
 		</location>
-		<location id="id19" x="-1445" y="-246">
-			<name x="-1496" y="-221">SendMessage</name>
-			<committed/>
-		</location>
-		<location id="id20" x="-1445" y="-76">
-		</location>
-		<location id="id21" x="-1445" y="-136">
-			<committed/>
-		</location>
-		<location id="id22" x="-1326" y="-17">
-			<committed/>
-		</location>
-		<location id="id23" x="-1445" y="17">
-			<committed/>
-		</location>
-		<location id="id24" x="-1360" y="-136">
-		</location>
-		<location id="id25" x="-1037" y="-136">
-		</location>
-		<location id="id26" x="-1122" y="-510">
-		</location>
-		<location id="id27" x="-952" y="-510">
-		</location>
-		<init ref="id13"/>
-		<transition id="id28">
-			<source ref="id26"/>
-			<target ref="id27"/>
-			<label kind="guard" x="-1054" y="-476">c &gt; 30</label>
-			<nail x="-1037" y="-476"/>
-		</transition>
-		<transition id="id29">
-			<source ref="id26"/>
-			<target ref="id27"/>
-			<label kind="synchronisation" x="-1104" y="-527">lastCst[id]?</label>
-		</transition>
-		<transition id="id30">
-			<source ref="id16"/>
-			<target ref="id26"/>
-			<label kind="synchronisation" x="-1427" y="-429">req!</label>
-			<label kind="assignment" x="-1377" y="-442">setupMessage(id, receiver, FIRSTCST)</label>
-		</transition>
+		<init ref="id30"/>
 		<transition id="id31">
-			<source ref="id24"/>
+			<source ref="id30"/>
 			<target ref="id25"/>
-			<label kind="synchronisation" x="-1232" y="-178">req!</label>
-			<label kind="assignment" x="-1343" y="-161">setupMessage(id, receiver, LASTCST)</label>
 		</transition>
 		<transition id="id32">
-			<source ref="id20"/>
-			<target ref="id24"/>
-			<label kind="synchronisation" x="-1411" y="-102">firstCst[id]?</label>
-			<label kind="assignment" x="-1428" y="-136">c = 0</label>
+			<source ref="id27"/>
+			<target ref="id25"/>
+			<label kind="synchronisation" x="-272" y="-111">iq[id]?</label>
+			<nail x="-213" y="-102"/>
 		</transition>
 		<transition id="id33">
-			<source ref="id13"/>
-			<target ref="id15"/>
-			<label kind="guard" x="-2023" y="-93">!sender &amp;&amp; saslAuthenticated[id]</label>
-			<label kind="synchronisation" x="-1870" y="-76">ish[id]?</label>
+			<source ref="id25"/>
+			<target ref="id27"/>
+			<label kind="synchronisation" x="-153" y="-119">req!</label>
+			<label kind="assignment" x="-162" y="-102">setupMessage(id, receiver, IQ)</label>
+			<nail x="-170" y="-102"/>
 		</transition>
 		<transition id="id34">
-			<source ref="id21"/>
-			<target ref="id20"/>
-			<nail x="-1428" y="-102"/>
+			<source ref="id25"/>
+			<target ref="id28"/>
+			<label kind="synchronisation" x="50" y="-68">firstCst[id]?</label>
 		</transition>
 		<transition id="id35">
-			<source ref="id23"/>
-			<target ref="id20"/>
-			<nail x="-1462" y="-34"/>
+			<source ref="id25"/>
+			<target ref="id26"/>
+			<label kind="synchronisation" x="-26" y="-51">req!</label>
+			<label kind="assignment" x="-119" y="-34">setupMessage(id, receiver, FIRSTCST)</label>
 		</transition>
 		<transition id="id36">
-			<source ref="id22"/>
-			<target ref="id20"/>
-			<nail x="-1394" y="-34"/>
+			<source ref="id27"/>
+			<target ref="id28"/>
+			<label kind="synchronisation" x="42" y="-145">firstCst[id]?</label>
 		</transition>
 		<transition id="id37">
-			<source ref="id20"/>
-			<target ref="id23"/>
-			<label kind="synchronisation" x="-1445" y="-34">iq[id]?</label>
+			<source ref="id26"/>
+			<target ref="id29"/>
+			<label kind="synchronisation" x="246" y="-8">lastCst[id]?</label>
+			<nail x="297" y="-17"/>
 		</transition>
 		<transition id="id38">
-			<source ref="id20"/>
-			<target ref="id22"/>
-			<label kind="synchronisation" x="-1411" y="-68">presence[id]?</label>
+			<source ref="id26"/>
+			<target ref="id29"/>
+			<label kind="guard" x="237" y="-52">c &gt; 30</label>
 		</transition>
 		<transition id="id39">
-			<source ref="id20"/>
-			<target ref="id21"/>
-			<label kind="synchronisation" x="-1564" y="-153">message[id]?</label>
+			<source ref="id25"/>
+			<target ref="id25"/>
+			<label kind="synchronisation" x="-195" y="34">req!</label>
+			<label kind="assignment" x="-263" y="51">setupMessage(id, receiver, MESSAGE)</label>
+			<nail x="-153" y="33"/>
+			<nail x="-221" y="33"/>
 		</transition>
 		<transition id="id40">
-			<source ref="id15"/>
-			<target ref="id20"/>
-			<label kind="synchronisation" x="-1649" y="-119">req!</label>
-			<label kind="assignment" x="-1717" y="-102">setupMessage(id, receiver, RSH)</label>
+			<source ref="id28"/>
+			<target ref="id29"/>
+			<label kind="synchronisation" x="186" y="-111">req!</label>
+			<label kind="assignment" x="186" y="-128">setupMessage(id, receiver, LASTCST)</label>
 		</transition>
-		<transition id="id41">
-			<source ref="id17"/>
-			<target ref="id16"/>
-			<label kind="assignment" x="-1411" y="-476">c = 0</label>
-			<nail x="-1385" y="-416"/>
-		</transition>
-		<transition id="id42">
-			<source ref="id18"/>
-			<target ref="id16"/>
-			<label kind="assignment" x="-1360" y="-323">c = 0</label>
-			<nail x="-1368" y="-323"/>
-		</transition>
-		<transition id="id43">
-			<source ref="id19"/>
-			<target ref="id16"/>
-			<label kind="assignment" x="-1513" y="-289">c = 0</label>
-			<nail x="-1487" y="-306"/>
-		</transition>
-		<transition id="id44">
-			<source ref="id16"/>
-			<target ref="id19"/>
-			<label kind="guard" x="-1428" y="-289">c &gt;= 5</label>
-			<label kind="synchronisation" x="-1428" y="-306">req!</label>
-			<label kind="assignment" x="-1428" y="-272">setupMessage(id, receiver, MESSAGE)</label>
-		</transition>
-		<transition id="id45">
-			<source ref="id16"/>
-			<target ref="id18"/>
-			<label kind="guard" x="-1343" y="-391">c &gt;= 5</label>
-			<label kind="synchronisation" x="-1275" y="-459">req!</label>
-			<label kind="assignment" x="-1411" y="-374">setupMessage(id, receiver, IQ)</label>
-		</transition>
-		<transition id="id46">
-			<source ref="id16"/>
-			<target ref="id17"/>
-			<label kind="guard" x="-1496" y="-476">c &gt;= 5</label>
-			<label kind="synchronisation" x="-1479" y="-459">req!</label>
-			<label kind="assignment" x="-1734" y="-442">setupMessage(id, receiver, PRESENCE)</label>
-		</transition>
+	</template>
+	<template>
+		<name>ClientReceiver</name>
+		<parameter>int id, int receiver</parameter>
+		<declaration>clock c;
+
+void setupMessage(int from, int to, int content){
+    messageType message = {from, to, content};
+    cClientMessage = message;
+    c = 0;
+}</declaration>
+		<location id="id41" x="-433" y="102">
+			<name x="-467" y="119">SendingMessages</name>
+		</location>
+		<location id="id42" x="-59" y="102">
+		</location>
+		<location id="id43" x="-433" y="-43">
+			<name x="-443" y="-77">ReceivingMessages</name>
+		</location>
+		<location id="id44" x="-76" y="51">
+		</location>
+		<location id="id45" x="85" y="51">
+			<name x="111" y="34">EndOfStream</name>
+			<committed/>
+		</location>
+		<location id="id46" x="-850" y="-42">
+		</location>
+		<init ref="id46"/>
 		<transition id="id47">
-			<source ref="id14"/>
-			<target ref="id16"/>
-			<label kind="synchronisation" x="-1666" y="-365">rsh[id]?</label>
+			<source ref="id46"/>
+			<target ref="id43"/>
 		</transition>
 		<transition id="id48">
-			<source ref="id13"/>
-			<target ref="id14"/>
-			<label kind="select" x="-2006" y="-374">i : int[0,CLIENTNUMBER-1]</label>
-			<label kind="guard" x="-2201" y="-323">sender &amp;&amp; i != id &amp;&amp; saslAuthenticated[id]</label>
-			<label kind="synchronisation" x="-1921" y="-357">req!</label>
-			<label kind="assignment" x="-2091" y="-340">setupMessage(id, i, ISH)</label>
+			<source ref="id41"/>
+			<target ref="id43"/>
+			<label kind="synchronisation" x="-501" y="9">req!</label>
+			<label kind="assignment" x="-705" y="26">setupMessage(id, receiver, IQ)</label>
+			<nail x="-459" y="34"/>
+		</transition>
+		<transition id="id49">
+			<source ref="id43"/>
+			<target ref="id41"/>
+			<label kind="synchronisation" x="-408" y="26">iq[id]?</label>
+			<nail x="-408" y="34"/>
+		</transition>
+		<transition id="id50">
+			<source ref="id41"/>
+			<target ref="id44"/>
+			<label kind="synchronisation" x="-297" y="43">firstCst[id]?</label>
+		</transition>
+		<transition id="id51">
+			<source ref="id41"/>
+			<target ref="id42"/>
+			<label kind="synchronisation" x="-272" y="85">req!</label>
+			<label kind="assignment" x="-365" y="102">setupMessage(id, receiver, FIRSTCST)</label>
+		</transition>
+		<transition id="id52">
+			<source ref="id43"/>
+			<target ref="id44"/>
+			<label kind="synchronisation" x="-306" y="-25">firstCst[id]?</label>
+		</transition>
+		<transition id="id53">
+			<source ref="id42"/>
+			<target ref="id45"/>
+			<label kind="synchronisation" x="0" y="128">lastCst[id]?</label>
+			<nail x="51" y="119"/>
+		</transition>
+		<transition id="id54">
+			<source ref="id42"/>
+			<target ref="id45"/>
+			<label kind="guard" x="-17" y="85">c &gt; 30</label>
+		</transition>
+		<transition id="id55">
+			<source ref="id43"/>
+			<target ref="id43"/>
+			<label kind="synchronisation" x="-510" y="-137">message[id]?</label>
+			<nail x="-501" y="-111"/>
+			<nail x="-433" y="-111"/>
+		</transition>
+		<transition id="id56">
+			<source ref="id44"/>
+			<target ref="id45"/>
+			<label kind="synchronisation" x="-34" y="26">req!</label>
+			<label kind="assignment" x="-127" y="9">setupMessage(id, receiver, LASTCST)</label>
 		</transition>
 	</template>
 	<template>
 		<name>Server</name>
-		<location id="id49" x="-1028" y="-178">
-		</location>
-		<location id="id50" x="-1045" y="-314">
+		<declaration>int cSender, cReceiver;
+int cContent = -1;
+
+void readMessage(){
+    cContent = cClientMessage.content;
+    cSender = cClientMessage.from;
+    cReceiver = cClientMessage.to;
+}
+
+void sendMessage(){
+    messageType message = {cSender, cReceiver, cContent};
+    cServerMessage = message;
+    cContent = -1;
+}
+
+bool canReadMessage(){
+    return cContent == -1;
+}</declaration>
+		<location id="id57" x="-918" y="-340">
 			<committed/>
 		</location>
-		<location id="id51" x="-952" y="-289">
-			<committed/>
+		<location id="id58" x="-1207" y="-340">
 		</location>
-		<location id="id52" x="-884" y="-170">
-			<committed/>
-		</location>
-		<location id="id53" x="-1292" y="-51">
-			<committed/>
-		</location>
-		<location id="id54" x="-1164" y="17">
-			<committed/>
-		</location>
-		<location id="id55" x="-1139" y="-136">
-		</location>
-		<location id="id56" x="-884" y="-102">
-			<committed/>
-		</location>
-		<location id="id57" x="-1088" y="25">
-			<committed/>
-		</location>
-		<init ref="id55"/>
-		<transition id="id58">
-			<source ref="id50"/>
-			<target ref="id55"/>
-		</transition>
+		<init ref="id58"/>
 		<transition id="id59">
-			<source ref="id51"/>
-			<target ref="id55"/>
+			<source ref="id57"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-893" y="-196">cContent == LASTCST</label>
+			<label kind="synchronisation" x="-893" y="-179">lastCst[cReceiver]!</label>
+			<label kind="assignment" x="-884" y="-162">sendMessage()</label>
+			<nail x="-893" y="-145"/>
 		</transition>
 		<transition id="id60">
-			<source ref="id52"/>
-			<target ref="id55"/>
+			<source ref="id57"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-1096" y="-170">cContent == MESSAGE</label>
+			<label kind="synchronisation" x="-1105" y="-153">message[cReceiver]!</label>
+			<label kind="assignment" x="-1071" y="-137">sendMessage()</label>
+			<nail x="-1054" y="-170"/>
 		</transition>
 		<transition id="id61">
-			<source ref="id56"/>
-			<target ref="id55"/>
+			<source ref="id57"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-689" y="-289">cContent == FIRSTCST</label>
+			<label kind="synchronisation" x="-672" y="-264">firstCst[cReceiver]!</label>
+			<label kind="assignment" x="-655" y="-238">sendMessage()</label>
+			<nail x="-655" y="-221"/>
 		</transition>
 		<transition id="id62">
 			<source ref="id57"/>
-			<target ref="id55"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-799" y="-442">cContent == IQ</label>
+			<label kind="synchronisation" x="-791" y="-425">iq[cReceiver]!</label>
+			<label kind="assignment" x="-782" y="-408">sendMessage()</label>
+			<nail x="-765" y="-408"/>
 		</transition>
 		<transition id="id63">
-			<source ref="id54"/>
-			<target ref="id55"/>
+			<source ref="id57"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-1020" y="-536">cContent == RSH</label>
+			<label kind="synchronisation" x="-1012" y="-519">rsh[cReceiver]!</label>
+			<label kind="assignment" x="-952" y="-502">sendMessage()</label>
+			<nail x="-969" y="-502"/>
 		</transition>
 		<transition id="id64">
-			<source ref="id53"/>
-			<target ref="id55"/>
+			<source ref="id57"/>
+			<target ref="id57"/>
+			<label kind="guard" x="-1224" y="-459">cContent == ISH</label>
+			<label kind="synchronisation" x="-1224" y="-442">ish[cReceiver]!</label>
+			<label kind="assignment" x="-1216" y="-425">sendMessage()</label>
+			<nail x="-1131" y="-425"/>
+			<nail x="-1114" y="-416"/>
 		</transition>
 		<transition id="id65">
-			<source ref="id51"/>
-			<target ref="id55"/>
+			<source ref="id57"/>
+			<target ref="id58"/>
+			<label kind="guard" x="-1189" y="-374">canReadMessage()</label>
 		</transition>
 		<transition id="id66">
-			<source ref="id50"/>
-			<target ref="id55"/>
-			<nail x="-1173" y="-289"/>
-		</transition>
-		<transition id="id67">
-			<source ref="id49"/>
+			<source ref="id58"/>
 			<target ref="id57"/>
-			<label kind="guard" x="-867" y="0">cContent == LASTCST</label>
-			<label kind="synchronisation" x="-867" y="17">lastCst[cReceiver]!</label>
-			<nail x="-1011" y="-76"/>
-		</transition>
-		<transition id="id68">
-			<source ref="id49"/>
-			<target ref="id56"/>
-			<label kind="guard" x="-867" y="-102">cContent == FIRSTCST</label>
-			<label kind="synchronisation" x="-867" y="-85">firstCst[cReceiver]!</label>
-			<nail x="-935" y="-127"/>
-		</transition>
-		<transition id="id69">
-			<source ref="id55"/>
-			<target ref="id49"/>
-			<label kind="synchronisation" x="-1122" y="-127">req?</label>
-		</transition>
-		<transition id="id70">
-			<source ref="id49"/>
-			<target ref="id54"/>
-			<label kind="guard" x="-1071" y="0">cContent == MESSAGE</label>
-			<label kind="synchronisation" x="-1054" y="17">message[cReceiver]!</label>
-		</transition>
-		<transition id="id71">
-			<source ref="id49"/>
-			<target ref="id53"/>
-			<label kind="guard" x="-1428" y="-34">cContent == PRESENCE</label>
-			<label kind="synchronisation" x="-1411" y="-17">presence[cReceiver]!</label>
-			<nail x="-1139" y="-93"/>
-		</transition>
-		<transition id="id72">
-			<source ref="id49"/>
-			<target ref="id52"/>
-			<label kind="guard" x="-867" y="-204">cContent == IQ</label>
-			<label kind="synchronisation" x="-867" y="-187">iq[cReceiver]!</label>
-		</transition>
-		<transition id="id73">
-			<source ref="id49"/>
-			<target ref="id51"/>
-			<label kind="guard" x="-952" y="-272">cContent == RSH</label>
-			<label kind="synchronisation" x="-952" y="-255">rsh[cReceiver]!</label>
-			<nail x="-969" y="-187"/>
-		</transition>
-		<transition id="id74">
-			<source ref="id49"/>
-			<target ref="id50"/>
-			<label kind="guard" x="-1156" y="-272">cContent == ISH</label>
-			<label kind="synchronisation" x="-1139" y="-255">ish[cReceiver]!</label>
+			<label kind="guard" x="-1182" y="-332">canReadMessage()</label>
+			<label kind="synchronisation" x="-1131" y="-315">req?</label>
+			<label kind="assignment" x="-1165" y="-298">readMessage()</label>
 		</transition>
 	</template>
-	<system>// Place template instantiations here.
-Client1 = Client(0, true);
-Client2 = Client(1, false);
-Server1 = Server();
+	<system>Server1 = Server();
+
+ClientSender1 = ClientSender(0,1);
+ClientReceiver1 = ClientReceiver(1,0);
 TLSEncryption1 = TLSEncryption(0);
 TLSEncryption2 = TLSEncryption(1);
 SASLAuthenticationToServer1 = SASLAuthenticationToServer(0);
@@ -400,13 +437,37 @@ SASLAuthenticationToServer2 = SASLAuthenticationToServer(1);
 TCPConnectionToServer1= TCPConnectionToServer(0);
 TCPConnectionToServer2 = TCPConnectionToServer(1);
 // List one or more processes to be composed into a system.
-system Client1, Client2, Server1, TCPConnectionToServer1, TCPConnectionToServer2, TLSEncryption1, TLSEncryption2, SASLAuthenticationToServer1, SASLAuthenticationToServer2;
+system Server1, ClientSender1, ClientReceiver1;//, TCPConnectionToServer1, TCPConnectionToServer2, TLSEncryption1, TLSEncryption2, SASLAuthenticationToServer1, SASLAuthenticationToServer2;
 </system>
 	<queries>
 		<option key="--search-order" value="1"/>
 		<query>
-			<formula/>
+			<formula>E&lt;&gt;ClientSender1.EndOfStream</formula>
 			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-09-23 20:30:11 -0300">
+				<option key="--search-order" value="1"/>
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt;ClientReceiver1.EndOfStream</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-09-23 20:30:14 -0300">
+				<option key="--search-order" value="1"/>
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt;ClientReceiver1.EndOfStream &amp;&amp; ClientSender1.EndOfStream</formula>
+			<comment/>
+			<result outcome="success" type="quality" timestamp="2024-09-23 20:30:16 -0300">
+				<option key="--search-order" value="1"/>
+			</result>
+		</query>
+		<query>
+			<formula>A&lt;&gt;ClientSender1.EndOfStream &amp;&amp; ClientReceiver1.EndOfStream</formula>
+			<comment/>
+			<result outcome="failure" type="quality" timestamp="2024-09-23 20:30:18 -0300">
+				<option key="--search-order" value="1"/>
+			</result>
 		</query>
 	</queries>
 </nta>

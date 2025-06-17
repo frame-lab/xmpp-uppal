@@ -1,0 +1,132 @@
+const int CAPACITY = 20;
+
+clock senderClock;
+
+const int INPUTMESSAGEARRAYSIZE = 8;
+MessageData inputMessageArray[INPUTMESSAGEARRAYSIZE] = {{0, 3, IQ_SET}, {0, 3, IQ_SET}, {0, 2, MESSAGE}, {0, 2, IQ_SET}, {0, 3, MESSAGE}, {0, 3, IQ_SET}, {0, 1, MESSAGE}, {0, 3, IQ_SET}, {0, 2, IQ_GET}, {0, 1, MESSAGE}}; 
+MessageDataWithPriority inputMessageArrayWithId[CAPACITY];
+MessageDataWithPriority sentMessagesReference[INPUTMESSAGEARRAYSIZE + 1]; 
+int sendSize = 0;
+
+MessageDataWithPriority receiveQueue[CAPACITY];
+int size = 0;
+
+int getHighestPriorityIndex(MessageDataWithPriority receiveQueue[CAPACITY], int pqSize)
+{
+    int highestpriorityValue = -10000;
+    int ind = -1;
+    int i;
+    for (i = 0; i < pqSize; i++) 
+    {
+        if (highestpriorityValue == receiveQueue[i].priorityValue
+            && ind > -1
+            && receiveQueue[ind].priorityValue < receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+        else if (highestpriorityValue
+                 < receiveQueue[i].priorityValue) 
+        {
+            highestpriorityValue = receiveQueue[i].priorityValue;
+            ind = i;
+        }
+    }
+ 
+    return ind;
+}
+
+void enqueueMessage(MessageDataWithPriority &pq[CAPACITY], int &pqSize, MessageDataWithPriority message)
+{
+    pq[pqSize] = message;
+    pqSize++;
+}
+
+void initializeSystem()
+{
+    int i;
+    MessageDataWithPriority nullMessage = NULL;
+    isStreamClosed[id] = true; // A propria stream sempre inicializa fechada porque o controle do fim da stream é dos receivers
+    for (i = 0; i < CAPACITY; i++)
+    {
+        receiveQueue[i] = nullMessage; 
+    }
+    for (i = 0; i < INPUTMESSAGEARRAYSIZE; i++)
+    {
+        int messageIndexRef =  i + 1; // soma 1 para que a prioridade seja sempre maior do que zero. Zero é a prioridade do fim da comunicação
+        MessageDataWithPriority messageWithId =  {inputMessageArray[i], messageIndexRef}; 
+        sentMessagesReference[messageIndexRef] = messageWithId;
+        enqueueMessage(inputMessageArrayWithId, sendSize, messageWithId);
+    }
+    for (i = INPUTMESSAGEARRAYSIZE; i < CAPACITY; i++){
+        inputMessageArrayWithId[i] = nullMessage;
+    }
+    for (i = 1; i < CLIENT_NUMBER; i++){
+        MessageData firstCstMessage = { id, i , FIRSTCST} ;
+        MessageDataWithPriority firstCstMessageTPR = { firstCstMessage, 0} ;
+        enqueueMessage(inputMessageArrayWithId, sendSize, firstCstMessageTPR);
+    }
+}
+
+void readAndStoreMessage(MessageDataWithPriority &pq[CAPACITY], int &pqSize){
+    MessageDataWithPriority message = currentToClientMessage[id];
+    if (currentToClientMessage[id] != NULL){
+        enqueueMessage(pq, pqSize, message);
+        currentToClientMessage[id] = NULL;
+    }
+}
+
+void dequeueMessage(MessageDataWithPriority &pq[CAPACITY], int &pqSize)
+{
+    int ind = getHighestPriorityIndex(pq, pqSize);
+    int i;
+    if (pqSize > 1){ 
+        for (i = ind; i <= pqSize-1; i++) {
+            pq[i] = pq[i + 1];
+            pq[i + 1] = NULL;
+        }
+    } else {
+        pq[0] = NULL;
+    }
+    pqSize--;
+}
+
+void sendNextMessage(MessageDataWithPriority &pq[CAPACITY], int &pqSize)
+{
+    MessageDataWithPriority nextMessage = pq[getHighestPriorityIndex(pq, pqSize)];
+    dequeueMessage(pq, pqSize);
+    currentToServerMessage = nextMessage;
+    senderClock = 0; 
+    // reseta o relogio sempre que uma mensagem sai da fila para que seja mais facil saber o tempo que 
+    //deve aguardar pela resposta de uma mensagem antes de enviar o firstCST
+}
+
+bool canReceiveMessage(){
+    return size < CAPACITY;
+}
+
+
+bool hasReceivedMessage(){
+    return currentToClientMessage[id] != NULL;
+}
+
+bool hasNextMessage() {
+    return getHighestPriorityIndex(inputMessageArrayWithId,sendSize) != -1;
+}
+
+bool isNextMessageType(MessageDataWithPriority pq[CAPACITY], int pqSize, int messageContent) 
+{
+    MessageDataWithPriority message = pq[getHighestPriorityIndex(pq, pqSize)];
+    return message.value.content == messageContent;
+}
+
+void retryMessage(MessageDataWithPriority &srcPq[CAPACITY], int &srcPqSize, MessageDataWithPriority &destPq[CAPACITY], int &destPqSize){
+    MessageDataWithPriority srcMessage = srcPq[getHighestPriorityIndex(srcPq, srcPqSize)];
+    MessageDataWithPriority newMessage = sentMessagesReference[srcMessage.priorityValue];
+    enqueueMessage(destPq, destPqSize, newMessage);
+}
+
+
+bool shouldEndStream(){
+    return hasNextMessage() && isNextMessageType(inputMessageArrayWithId, sendSize, FIRSTCST);
+}

@@ -1,0 +1,93 @@
+const int CAPACITY = 200;
+MessageDataWithPriority buffer[CAPACITY];
+
+// QUEUE 
+int front = 0;
+int size = 0;
+clock c;
+
+MessageDataWithPriority nextMessage = NULL;
+MessageDataWithPriority top(){
+    return buffer[front];
+}
+
+bool queueEmpty(){
+    return top() == NULL;
+}
+
+bool queueFull(){
+    return size >= CAPACITY;
+}
+MessageDataWithPriority dequeueMessage(){
+    MessageDataWithPriority m = buffer[front];
+    int i ;
+    if (size > 1) {
+        for (i = 0; i < size - 1; i++) {
+            buffer[i] = buffer[i + 1];
+            buffer[i + 1] = NULL;
+        }
+    } else {
+        buffer[0] = NULL;
+    }
+    size--;
+    return m;
+}
+
+void enqueueMessage(MessageDataWithPriority message){
+    buffer[size] = message;    
+    size++;
+}
+
+
+void requeueMessageWithLessPriority(){
+    MessageDataWithPriority message = NULL;
+    message = dequeueMessage();
+    if (message.priorityValue > 0){
+        message.priorityValue--;
+    }
+    enqueueMessage(message);
+}
+
+bool bufferExcededLimit(){
+     return size < CAPACITY;
+}
+
+void initializeSystem(){
+    int i;
+    for (i = 0; i < CAPACITY; i++){
+        buffer[i] = NULL;
+    }
+}
+
+void readAndStoreMessage(){
+    if (currentToServerMessage != NULL)
+    {
+        enqueueMessage(currentToServerMessage);
+        currentToServerMessage = NULL;
+    }
+}
+
+bool hasNextMessage(){
+    return !queueEmpty(); 
+}
+
+void getNextMessage(){
+    nextMessage = top();
+    c := 0;
+}
+
+void sendMessage(){
+    nextMessage = dequeueMessage();
+    currentToClientMessage[nextMessage.value.to] = nextMessage;
+    nextMessage= NULL;
+}
+
+bool allStreamsClosed(){
+    int i;
+    for (i=0; i<CLIENT_NUMBER;i++){
+        if (!isStreamClosed[i]){
+            return false;
+        }
+    }
+    return true;
+}

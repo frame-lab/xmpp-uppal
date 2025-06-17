@@ -1,0 +1,4 @@
+void  finishStreamSetup(){
+    isStreamInitiated[receiver] = true;
+    isStreamInitiated[id] = true;
+}
