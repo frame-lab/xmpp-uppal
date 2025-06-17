@@ -1,5 +1,5 @@
-
 import random
+import argparse
 
 message_options = ['IQ_GET','IQ_SET','MESSAGE']
 
@@ -22,7 +22,7 @@ def generate_code(num_clients):
     output.append(f"Server{0} = Server();")
     output.append("")
     for i in range(1, num_clients):
-        output.append(f"Receiver{i} = Receiver(0,{i},{errorProbability});")
+        output.append(f"Receiver{i} = Receiver(0,{i},{error_probability});")
         output.append(f"SenderStreamSetup{i} = SenderStreamSetup({0},{i});")
         output.append(f"ReceiverStreamSetup{i} = ReceiverStreamSetup({0},{i});")
         output.append("")
@@ -37,10 +37,21 @@ def generate_code(num_clients):
 
     return "\n".join(output)
 
-# Solicitar número de clientes
-num_clients = 4
-errorProbability = 0
-print(generate_code(num_clients))
+def main():
+    parser = argparse.ArgumentParser(description='Gerador de sistema XMPP')
+    parser.add_argument('--num_clients', type=int, required=True, help='Número de clientes')
+    parser.add_argument('--error_probability', type=int, required=True, help='Probabilidade de erro')
+    parser.add_argument('--num_messages', type=int, required=True, help='Número de mensagens')
+    args = parser.parse_args()
 
-print('')
-print('{'+', '.join(gerateRandomMessages(10, num_clients))+ '}')
+    global error_probability
+    error_probability = args.error_probability
+    num_clients = args.num_clients
+    num_messages = args.num_messages
+
+    print(generate_code(num_clients))
+    print('')
+    print('{' + ', '.join(gerateRandomMessages(num_messages, num_clients)) + '}')
+
+if __name__ == '__main__':
+    main()
