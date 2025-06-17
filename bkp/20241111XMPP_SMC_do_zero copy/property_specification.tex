@@ -1,0 +1,138 @@
+This section details our approach to specifying and formalizing properties for the verification of real-time systems. Our primary focus is on translating abstract system requirements into concrete formal properties that can be rigorously verified using the UPPAAL model checker.
+
+\subsubsection{Property Classification Framework}
+We classify properties based on their nature and the specific aspects of system behavior they address. Our framework includes: Functional Properties, which are assertions about the system's functional behavior, independent of any timing constraints; Timing Properties, which are assertions specifically related to time-dependent aspects of the system; Resource Utilization Properties, concerning the system's use of resources such as memory, bandwidth, or processing capacity; and Reliability Properties, which are assertions about the system's behavior in the presence of faults or unexpected conditions. Within each of these categories, we further distinguish between safety properties ("nothing bad happens") and liveness properties ("something good eventually happens").
+
+\subsubsection{From Requirements to Formal Properties}
+The process of translating system requirements into formal properties involves several methodical steps. First, Requirement Analysis identifies the key requirements that necessitate verification, with particular attention to those related to timing constraints and critical functionality. Second, Property Extraction isolates specific, atomic, and verifiable properties from each identified requirement. Third, Formalization translates each extracted property into a formal language, which in our case is UPPAAL's query language, based on a subset of Computation Tree Logic (CTL). Finally, Validation involves reviewing the formalized properties with domain experts to ensure they accurately capture the original system requirements.
+
+\subsubsection{Property Patterns for Real-Time Systems}
+To streamline the formalization of common requirements, we employ a set of predefined property patterns tailored for real-time systems. These include Bounded Response, where an event is always followed by another event within a specified time bound (formalization: P --> (Q and clock $\leq$ t); example: "Every request is responded to within 10 time units"). Minimum Separation ensures that two consecutive occurrences of an event are separated by at least a specified time interval (formalization: A[] (P imply (clock $\geq$ t before P)); example: "Two consecutive sensor readings are at least 5 time units apart."). Bounded Invariance guarantees that a condition holds continuously for a specified time interval after an event (formalization: A[] (P imply A[clock $\leq$ t] Q); example: "After a reset, the system remains in initialization mode for at least 2 time units."). Bounded Recurrence dictates that an event occurs at least once within every specified time interval (formalization: A[] (clock $\geq$ t imply P); example: "The heartbeat signal occurs at least once every 30 time units."). Lastly, Bounded Universality confirms that a condition holds continuously for a specified time interval (formalization: A[clock $\leq$ t] P; example: "During the first 10 time units of operation, the system remains in a safe state."). These patterns serve as templates that can be instantiated with specific predicates, events, and time bounds relevant to the system under verification.
+
+\subsubsection{UPPAAL-Specific Property Formulation}
+We formulate properties using UPPAAL's query language, which combines state predicates, temporal operators, and clock constraints. State Predicates are expressions that evaluate to true or false for a given system state. These can reference automaton locations (e.g., `Controller.Waiting`, `Sensor.Active`), variables (e.g., `queue.length $\leq$ MAX\_SIZE`, `mode == NORMAL`), or clock values (e.g., `x $\leq$ 10`, `y - x $>$ 5`). The Temporal Operators available include: `A[] $\phi$` ("Invariantly $\phi$," meaning $\phi$ holds in all states along all paths); `E<> $\phi$` ("Potentially $\phi$," meaning $\phi$ holds in some state along some path); `A<> $\phi$` ("Inevitably $\phi$," meaning $\phi$ holds in some state along all paths); `E[] $\phi$` ("Potentially always $\phi$," meaning $\phi$ holds in all states along some path); and `$\phi$ --> $\psi$` ("$\phi$ leads to $\psi$," meaning whenever $\phi$ holds, $\psi$ will eventually hold). Clock Constraints are conditions on clock values used to express timing properties, such as simple bounds (`x $\leq$ 10`, `y $>$ 5`), differences (`x - y $\leq$ 2`), or resetting (`x = 0`).
+
+When formulating properties in UPPAAL, we adhere to specific guidelines: using descriptive variable and location names that reflect their semantic meaning; keeping state predicates as simple as possible; avoiding nested temporal operators, as they are not supported by UPPAAL; and utilizing comments to document the intention of complex properties.
+
+\subsubsection{Composite Properties and Decomposition}
+Complex requirements often necessitate decomposition into multiple simpler properties for effective verification. This involves Conjunction Decomposition, where a requirement involving the conjunction of multiple conditions is split into separate properties, each addressing a single condition. Implication Decomposition handles properties of the form "if P then Q" by verifying P as a reachability property and P implies Q as a safety property. Sequence Decomposition addresses requirements involving sequences of events by verifying each step in the sequence and the transitions between steps. For example, the requirement "The system processes a request within 5 time units and sends a response within 3 time units after processing" can be decomposed into two distinct properties: (1) `Request --> (Processing and requestClock $\leq$ 5)` and (2) `Processing --> (Response and processingClock $\leq$ 3)`.
+
+\subsubsection{Coverage Analysis}
+To ensure comprehensive verification, we perform a thorough coverage analysis of our properties. Requirement Coverage ensures that all system requirements, particularly those related to timing constraints, are addressed by at least one formal property. State Coverage confirms that all significant system states are referenced within the properties. Transition Coverage verifies that all significant transitions between states are captured by the properties. Lastly, Path Coverage ensures that important execution paths are verified. We meticulously document the mapping between requirements and formal properties to maintain traceability and ensure completeness.
+
+\subsubsection{Property Validation Through Counterexamples}
+Prior to full verification, we validate our properties by intentionally introducing errors into the model and confirming that the properties can indeed detect these errors. For safety properties, we introduce violations and verify that the property fails as expected. For liveness properties, we introduce blocks to progress and verify that the property fails. For time-bounded properties, we modify timing parameters to exceed their defined bounds and verify that the property fails. This validation process is crucial for ensuring that the properties are correctly formulated and are sensitive enough to detect the types of errors they are designed to expose.
+
+\subsubsection{Visualization and Communication}
+To effectively communicate properties to various stakeholders, we employ visualization techniques. Property Diagrams provide graphical representations of properties, illustrating states, events, and timing constraints. Scenario Traces offer example execution traces that either satisfy or violate properties, typically presented using sequence diagrams or timing diagrams. Additionally, Natural Language Descriptions provide clear, non-technical explanations of properties for seamless communication with domain experts and other stakeholders. These visualization techniques bridge the gap between formal specifications and an intuitive understanding of system requirements.
+
+\subsubsection{Evolving Properties During Development}
+As both the system and its model undergo evolution, properties often require refinement. This includes updating properties to reflect Requirement Changes in system specifications. Properties are also adjusted to match Model Refinement within the system model. Furthermore, properties may be Property Strengthening based on verification results and an improved understanding of the system, or conversely, Property Weakening if they are found to be too stringent for realistic implementations, while still ensuring they capture essential requirements. We maintain a detailed history of property changes to document the evolution of verification requirements throughout the entire development process.
+
+\subsubsection{Property Specification Summary}
+Our approach to property specification provides a systematic methodology for translating system requirements into formal properties verifiable using UPPAAL. By leveraging property patterns, decomposition techniques, and rigorous validation methods, we ensure that the properties accurately capture the intended system behavior and are effective in detecting violations. This approach is particularly focused on real-time constraints, which are central to the correctness and reliability of real-time systems.
+
+---
+
+\subsection{XMPP Protocol Properties}
+
+In this section, we formally define the properties targeted for verification within our XMPP protocol model. These properties are derived directly from the XMPP specification \cite{rfc6120} and the specific requirements of real-time communication systems that utilize XMPP.
+
+\subsubsection{Safety Properties}
+Safety properties are fundamental in ensuring that "nothing bad happens" during the protocol's execution \cite{baier2008principles}. For the XMPP protocol, we identify several critical safety properties, as detailed in Table \ref{tab:xmpp_safety_properties}.
+
+\begin{longtable}{p{3.5cm}p{5cm}p{5.5cm}}
+\caption{XMPP Safety Properties for UPPAAL Verification}
+\label{tab:xmpp_safety_properties}\\
+\hline
+\textbf{Property} & \textbf{Example Scenario} & \textbf{UPPAAL Verification Approach} \\
+\hline
+\endfirsthead
+\multicolumn{3}{c}%
+{\tablename\ \thetable\ -- Continued from previous page} \\
+\hline
+\textbf{Property} & \textbf{Example Scenario} & \textbf{UPPAAL Verification Approach} \\
+\hline
+\endhead
+\hline
+\multicolumn{3}{r}{\textit{Continued on next page}} \\
+\endfoot
+\hline
+\endlastfoot
+Absence of Deadlocks & A scenario where the client and server become permanently stuck, waiting for message acknowledgment or delivery \cite{clarke1997model}. & Verify that there are no reachable states in the model where all components enter an indefinite waiting loop. \\
+No Message Loss & A situation where a server receives a message but crashes before successfully storing or forwarding it to the intended recipient \cite{meijer2005jabber}. & Ensure that for every message sent, a corresponding "received" event occurs in the recipient's model, accounting for potential retries and robust error handling mechanisms. \\
+No Duplicate Messages & A network glitch causes a message to be transmitted twice, resulting in the recipient receiving two identical copies \cite{waher2015learning}. & Track message identifiers (IDs) and verify that each unique ID is delivered to the recipient at most once throughout the communication. \\
+Presence Consistency & A user goes offline, yet their contacts erroneously continue to see them as "available" \cite{adams2002xep}. & Model presence updates and verify that status changes are accurately and promptly propagated to all subscribed contacts within an acceptable timeframe. \\
+Roster Integrity & A user adds a new contact, but the contact fails to appear in their roster list \cite{smith2009xmpp}. & Verify that all roster changes (additions, removals, and subscription requests) consistently result in the expected state changes on both the client and server sides. \\
+\end{longtable}
+
+\subsubsection{Liveness Properties}
+Liveness properties are crucial for ensuring that "something good eventually happens" within the protocol's operation \cite{baier2008principles}. For the XMPP protocol, we have identified the following key liveness properties, summarized in Table \ref{tab:xmpp_liveness_properties}.
+
+\begin{longtable}{p{3.5cm}p{5cm}p{5.5cm}}
+\caption{XMPP Liveness Properties for UPPAAL Verification}
+\label{tab:xmpp_liveness_properties}\\
+\hline
+\textbf{Property} & \textbf{Example Scenario} & \textbf{UPPAAL Verification Approach} \\
+\hline
+\endfirsthead
+\multicolumn{3}{c}%
+{\tablename\ \thetable\ -- Continued from previous page} \\
+\hline
+\textbf{Property} & \textbf{Example Scenario} & \textbf{UPPAAL Verification Approach} \\
+\hline
+\endhead
+\hline
+\multicolumn{3}{r}{\textit{Continued on next page}} \\
+\endfoot
+\hline
+\endlastfoot
+Eventual Message Delivery & Even in the presence of temporary network issues, a message must eventually reach its intended destination \cite{rfc6120}. & Model potential network delays and verify that for every message sent, there exists at least one execution path leading to its successful delivery, potentially involving retries and error recovery mechanisms. \\
+Progress in Stream Management & The establishment and termination of communication streams should consistently complete within a timely manner \cite{meijer2005jabber}. & Utilize timed properties in UPPAAL to assert that stream establishment and termination processes are not indefinitely blocked and complete within a reasonable, predefined time limit. \\
+Server Responsiveness & Clients should receive acknowledgments or error messages for their requests promptly from the server \cite{waher2015learning}. & Model various timeout mechanisms and verify that the server consistently provides a response (even if it's an error message) within the specified timeout period for every client request. \\
+\end{longtable}
+
+\subsubsection{Timing Properties}
+Timing properties hold particular significance for XMPP, given its prevalent use in near-real-time communication applications \cite{meijer2005jabber}. These properties are designed to capture the crucial temporal aspects of the protocol, as outlined in Table \ref{tab:xmpp_timing_properties}.
+
+\begin{longtable}{p{3.5cm}p{5cm}p{5.5cm}}
+\caption{XMPP Timing Properties for UPPAAL Verification}
+\label{tab:xmpp_timing_properties}\\
+\hline
+\textbf{Property} & \textbf{Example Scenario} & \textbf{UPPAAL Verification Approach} \\
+\hline
+\endfirsthead
+\multicolumn{3}{c}%
+{\tablename\ \thetable\ -- Continued from previous page} \\
+\hline
+\textbf{Property} & \textbf{Example Scenario} & \textbf{UPPAAL Verification Approach} \\
+\hline
+\endhead
+\hline
+\multicolumn{3}{r}{\textit{Continued on next page}} \\
+\endfoot
+\hline
+\endlastfoot
+Message Latency & Messages must be delivered within acceptable time bounds to ensure fluid interactive communication \cite{waher2015learning}. & Measure the time elapsed between a message being sent and its successful delivery, verifying that this duration does not exceed predefined acceptable thresholds. \\
+Server Processing Time & The server is expected to process and route messages with optimal efficiency \cite{smith2009xmpp}. & Verify that the time messages spend residing within the server's processing queue does not exceed reasonable, specified limits. \\
+Connection Establishment Time & Stream establishment should complete rapidly to ensure a responsive and seamless user experience \cite{rfc6120}. & Measure the total time taken from the initiation of a connection to the successful establishment of the communication stream, and verify it against acceptable temporal thresholds. \\
+\end{longtable}
+
+\subsubsection{XMPP-Specific Properties}
+Beyond the general categories mentioned, we identify several properties unique to the distinctive features of the XMPP protocol. These include:
+
+\begin{itemize}
+    \item \textbf{Stanza Handling}: Each type of XMPP stanza (Message, Presence, IQ) must be processed strictly according to its specific protocol rules \cite{rfc6120}. For instance, IQ stanzas are mandated to receive a response, whereas Message stanzas typically do not. Our UPPAAL Approach models the distinct types of stanzas and their corresponding handling logic, then verifies that each type adheres to its required response pattern.
+    \item \textbf{Stream Negotiation}: The XML stream negotiation process must strictly adhere to the specified sequence, which includes optional TLS and SASL negotiation phases \cite{meijer2005jabber}. Our UPPAAL Approach models the various states and transitions involved in stream negotiation, then verifies that they consistently follow the correct sequence without deviation.
+    \item \textbf{Error Handling}: The protocol is required to gracefully manage a variety of error conditions, such as network failures, protocol violations, and application-level errors \cite{waher2015learning}. Our UPPAAL Approach involves introducing simulated errors into the model and subsequently verifying that the protocol recovers appropriately and robustly.
+\end{itemize}
+
+\subsubsection{Formal Specification in UPPAAL}
+To verify these properties within UPPAAL, we translate them into formal queries using UPPAAL's query language, which is based on a subset of Computation Tree Logic (CTL) \cite{larsen1997uppaal}. The key temporal operators employed in our verification are: A[] p (meaning property `p` holds in all reachable states, or invariably); E<> p (meaning property `p` holds in at least one reachable state, or possibly); A<> p (meaning property `p` eventually holds in all execution paths, or inevitably); E[] p (meaning property `p` holds in all states along at least one execution path, or potentially always); and p --> q (meaning if property `p` holds now, property `q` will eventually hold in the future, or `p` leads to `q`). By leveraging these operators, we can formally express and rigorously verify the properties described previously. For example, to verify that messages are eventually delivered, we can formulate a query such as:
+\begin{verbatim}
+A[] (Sender.MessageSent --> Receiver.MessageReceived)
+\end{verbatim}
+This query formally states that whenever a message is sent by the `Sender`, it will inevitably be received by the `Receiver`, thereby capturing the core essence of the message delivery guarantee property \cite{larsen1997uppaal,meijer2005jabber}.
+
+\subsubsection{Property Prioritization and Verification Strategy}
+Given the potentially vast state space of our XMPP model, we strategically prioritize properties for verification based on their criticality to the protocol's overall correctness \cite{clarke1997model}. Our verification strategy unfolds in a structured manner: First, we verify Core Safety Properties, such as the absence of deadlocks and message correctness, as these are fundamental to the protocol's stable operation \cite{baier2008principles}. Next, we concentrate on Protocol-Specific Properties, including stream establishment, proper stanza handling, and effective error recovery mechanisms unique to XMPP \cite{rfc6120}. Following this, we verify Liveness Properties to ensure that the protocol consistently makes progress and avoids starvation \cite{clarke1997model}. Finally, we analyze Timing Properties to evaluate the real-time performance and adherence to deadlines of the protocol \cite{alur1994theory}. This methodical prioritization allows us to concentrate on the most critical aspects of the protocol initially, ensuring that fundamental correctness is firmly established before moving on to analyze more advanced or performance-related characteristics \cite{baier2008principles,clarke1997model}.
