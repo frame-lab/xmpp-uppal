@@ -14,18 +14,36 @@ init:{
 }%%
 
 sequenceDiagram
-participant Client1 as XMPP Client
-participant Server as XMPP Server
-Note right of Client1 : Determines connection port (DNS)
-Client1->>Server: Opens a TCP connection
-Note left of Server: If fails, sends TCP error
-Client1->>Server: Opens an XMPP stream using TCP
-Note left of Server: If fails, sends stream error
-Client1->>Server: Negotiates TLS for channel encryption
-Note left of Server: If fails, sends TLS negotiation error
-Client1->>Server: Authenticates using SASL
-Note left of Server: If fails, sends SASL error
-Server->>Client1: Provides stream resources
-Client1->>Server: Starts stream session
-Client1->>Server: Associates a resource to the stream
-Client1->>Server: Exchanges Stanzas with other entities in the network
+    participant Client1 as XMPP Initiating Entity
+    participant Server as XMPP Server
+    participant Client2 as XMPP Receiving Entity
+
+    Note right of Client1: Determines connection port (DNS)
+    Client1->>Server: Opens a TCP connection
+    Note left of Server: If fails, sends TCP error
+
+    Client1->>Server: Negotiates TLS for channel encryption
+    Client1->>Server: Authenticates using SASL
+    Server->>Client1: Provides stream resources & session
+    Server->>Client1: Sends stream features (e.g., TLS, SASL support)
+   
+   Note left of Client2: Determines connection port (DNS)
+    Client2->>Server: Opens a TCP connection
+    Note right of Server: If fails, sends TCP error
+
+    Client2->>Server: Negotiates TLS for channel encryption
+    Client2->>Server: Authenticates using SASL
+    Server->>Client2: Provides stream resources & session
+    Server->>Client2: Sends stream features (e.g., TLS, SASL support)
+
+    
+    Note over Client1, Client2: Both clients are now online and authenticated
+
+
+    %% Handshake Process for Client 1
+
+    Client1->>Server: Sends opening Initial Stream Header
+    Server->>Client2: Sends opening Initial Stream Header
+    Client2->>Server: Responds with its own Closing Stream Header
+    Server->>Client1: Sends Closing Stream Header
+    Note left of Server: If fails, sends stream error

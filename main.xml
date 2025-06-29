@@ -65,7 +65,7 @@ MessageDataWithPriority generateMessage(int from, int to, int stanzaType, int pr
 	<template>
 		<name>Sender</name>
 		<parameter>int id</parameter>
-		<declaration>const int CAPACITY = 20;
+		<declaration>const int CAPACITY = 100;
 
 clock senderClock;
 
@@ -197,8 +197,8 @@ void retryMessage(MessageDataWithPriority &amp;srcPq[CAPACITY], int &amp;srcPqSi
 bool shouldEndStream(){
     return hasNextMessage() &amp;&amp; isNextMessageType(inputMessageArrayWithId, sendSize, FIRSTCST);
 }</declaration>
-		<location id="id0" x="-739" y="-212">
-			<name x="-968" y="-187">loopReadingSendingMessages</name>
+		<location id="id0" x="-740" y="-212">
+			<name x="-969" y="-187">loopReadingSendingMessages</name>
 		</location>
 		<location id="id1" x="-935" y="-212">
 			<name x="-986" y="-204">initializing</name>
@@ -260,7 +260,7 @@ bool shouldEndStream(){
 		<transition id="id15">
 			<source ref="id9"/>
 			<target ref="id2"/>
-			<label kind="guard" x="-476" y="-187">senderClock &gt; 40</label>
+			<label kind="guard" x="-492" y="-187">senderClock &gt; 40</label>
 			<label kind="synchronisation" x="-476" y="-170">toServerChannel!</label>
 			<label kind="assignment" x="-476" y="-153">sendNextMessage(inputMessageArrayWithId, sendSize)</label>
 			<nail x="-68" y="-153"/>
@@ -542,7 +542,11 @@ void returnMessage(int messageContent, int messagePriority)
 	<template>
 		<name>SenderStreamSetup</name>
 		<parameter>int id, int receiver</parameter>
-		<declaration>void  finishStreamSetup(){
+		<declaration>clock c;
+
+
+
+void  finishStreamSetup(){
     isStreamInitiated[receiver] = true;
     isStreamInitiated[id] = true;
 }</declaration>
@@ -759,25 +763,13 @@ ReceiverStreamSetup3 = ReceiverStreamSetup(0,3);
 system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Receiver2, SenderStreamSetup2, ReceiverStreamSetup2, Receiver3, SenderStreamSetup3, ReceiverStreamSetup3;</system>
 	<queries>
 		<query>
-			<formula>E&lt;&gt; Server0.done</formula>
+			<formula>A&lt;&gt; Server0.done</formula>
 			<comment/>
-			<option key="--exploration" value="1"/>
-			<option key="--rand-heur" value="4"/>
-			<result outcome="success" type="quantity" value="LB/UB: 40/60 (depth: 214)" timestamp="2025-06-16 15:50:44 -0300">
-				<option key="--exploration" value="1"/>
-				<option key="--rand-heur" value="4"/>
-				<details>LB/UB: 40/60 (depth: 214)</details>
-			</result>
-		</query>
-		<query>
-			<formula>E&lt;&gt;(Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished)</formula>
-			<comment/>
-			<option key="--search-order" value="1"/>
+			<option key="--exploration" value="0"/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="success" type="quantity" value="LB/UB: 30/70 (depth: 211)" timestamp="2025-06-16 15:50:44 -0300">
-				<option key="--search-order" value="1"/>
+			<result outcome="failure" type="quality" timestamp="2025-06-17 21:05:02 -0300">
+				<option key="--exploration" value="0"/>
 				<option key="--diagnostic" value="0"/>
-				<details>LB/UB: 30/70 (depth: 211)</details>
 			</result>
 		</query>
 		<query>
@@ -785,7 +777,7 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<comment/>
 			<option key="--exploration" value="0"/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="failure" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+			<result outcome="failure" type="quality" timestamp="2025-06-17 21:23:18 -0300">
 				<option key="--exploration" value="0"/>
 				<option key="--diagnostic" value="0"/>
 			</result>
@@ -793,14 +785,14 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 		<query>
 			<formula>A&lt;&gt; Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished imply Server0.done</formula>
 			<comment/>
-			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+			<result outcome="success" type="quality" timestamp="2025-06-17 20:06:50 -0300">
 			</result>
 		</query>
 		<query>
 			<formula>A&lt;&gt; Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished imply Sender0.treatLastCST</formula>
 			<comment/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+			<result outcome="success" type="quality" timestamp="2025-06-17 20:06:50 -0300">
 				<option key="--diagnostic" value="0"/>
 			</result>
 		</query>
@@ -808,7 +800,7 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<formula>A&lt;&gt; not Sender0.hasNextMessage() imply Receiver1.streamFinished and Receiver2.streamFinished and Receiver3.streamFinished and Server0.done</formula>
 			<comment/>
 			<option key="--diagnostic" value="1"/>
-			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+			<result outcome="success" type="quality" timestamp="2025-06-17 20:06:50 -0300">
 				<option key="--diagnostic" value="1"/>
 			</result>
 		</query>
@@ -816,7 +808,7 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<formula>A[] (Sender0.nextMessageSent imply (Receiver1.messageReceived and Sender0.senderClock &gt; 100))</formula>
 			<comment/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="failure" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+			<result outcome="failure" type="quality" timestamp="2025-06-17 21:33:56 -0300">
 				<option key="--diagnostic" value="0"/>
 			</result>
 		</query>
@@ -825,9 +817,21 @@ system Sender0, Server0, Receiver1, SenderStreamSetup1, ReceiverStreamSetup1, Re
 			<comment/>
 			<option key="--exploration" value="0"/>
 			<option key="--diagnostic" value="0"/>
-			<result outcome="success" type="quality" timestamp="2025-06-16 15:50:44 -0300">
+			<result outcome="success" type="quality" timestamp="2025-06-17 20:06:50 -0300">
 				<option key="--exploration" value="0"/>
 				<option key="--diagnostic" value="0"/>
+			</result>
+		</query>
+		<query>
+			<formula>A&lt;&gt; Sender0.loopReadingSendingMessages and Sender0.hasNextMessage() and not Sender0.shouldEndStream() imply Sender0.nextMessageSent</formula>
+			<comment/>
+			<option key="--exploration" value="0"/>
+			<option key="--diagnostic" value="2"/>
+			<option key="--priority-order" value="2"/>
+			<result outcome="success" type="quality" timestamp="2025-06-17 20:26:08 -0300">
+				<option key="--exploration" value="0"/>
+				<option key="--diagnostic" value="2"/>
+				<option key="--priority-order" value="2"/>
 			</result>
 		</query>
 	</queries>
