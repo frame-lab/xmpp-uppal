@@ -1,0 +1,54 @@
+%%{
+init:{
+"theme": "base",
+"themeVariables": {
+"primaryColor": "#e8b07b",
+"primaryTextColor": "#000",
+"primaryBorderColor": "#000",
+"lineColor": "#000",
+"secondaryColor": "#FFFF",
+"tertiaryColor": "#fff",
+"background": "#FFFF"
+}
+}
+}%%
+
+sequenceDiagram
+    participant Sender
+    participant Server
+    participant Receiver
+
+    Sender->>Server: toServerChannel!(ish)
+    Server->>Receiver: toClientChannel(ish)
+    Receiver->>Server: toServerChannel!(rsh)
+    Server->>Sender: toClientChannel!(rsh)
+
+    Sender->>Server: toServerChannel!(message)
+
+    alt IQ
+        Sender->>Server: toServerChannel!(iq)
+        Server->>Receiver: toClientChannel!(iq)
+    else Message
+        Sender->>Server: toServerChannel!(message)
+        Server->>Receiver: toClientChannel!(iq)
+    end
+
+    alt Success
+        Receiver-->>Server: toServerChannel!(result)
+        Server-->>Sender: toClientChannel!(result)
+    else Failure
+        Receiver-->>Server: toServerChannel!(error)
+        Server-->>Sender: toClientChannel!(error)
+    end
+
+    note over Server: Sender will retry in case of failure
+    note over Sender,Receiver: Sender Decides to finish communication
+    
+    Sender->>Server: toServerChannel!(FirstCST)
+    Server->>Receiver: toClientChannel(FirstCST)
+    Receiver->>Server: toServerChannel!(LastCST)
+    Server->>Sender: toClientChannel!(LastCST)
+
+    note over Sender,Receiver: Communication Finished
+
+    
